@@ -1,0 +1,30 @@
+fail_fast: true
+repos:
+  - repo: local
+    hooks:
+      - id: system
+        name: Black
+        entry: poetry run black myproject
+        pass_filenames: false
+        language: system
+  - repo: local
+    hooks:
+      - id: system
+        name: isort
+        entry: poetry run isort myproject
+        pass_filenames: false
+        language: system
+  - repo: local
+    hooks:
+      - id: system
+        name: MyPy
+        entry: poetry run mypy myproject
+        pass_filenames: false
+        language: system
+  - repo: local
+    hooks:
+      - id: system
+        name: Pylint
+        entry: poetry run pylint -j 0 myproject
+        pass_filenames: false
+        language: system

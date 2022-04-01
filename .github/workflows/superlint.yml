@@ -1,0 +1,30 @@
+name: Linters
+
+on: push
+
+jobs:
+  linters:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+
+      - uses: Gr1N/setup-poetry@v7
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Running mypy
+        run: |
+          poetry run mypy myproject
+
+      - name: Super-Linter
+        uses: github/super-linter@v4.8.5
+        env:
+          VALIDATE_ALL_CODEBASE: false
+          DEFAULT_BRANCH: main
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

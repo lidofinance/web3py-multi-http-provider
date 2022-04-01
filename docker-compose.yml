@@ -1,0 +1,9 @@
+version: "3.7"
+services:
+  lido-bot:
+    image: lidofinance/lido-application
+    build: .
+    container_name: lido-application
+    restart: always
+    ports:
+      - "9000:9000"

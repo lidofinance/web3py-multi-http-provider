@@ -1,0 +1,38 @@
+name: Test coverage
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+
+    - uses: Gr1N/setup-poetry@v7
+
+    - name: Install dependencies
+      run: |
+        poetry install
+
+    - name: Test with pytest
+      run: |
+        poetry run pytest . --cov-config=.coveragerc --cov-report=xml --cov=lido
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v2
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./coverage.xml

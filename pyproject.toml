@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "python-base-template"
+version = "0.1.0"
+description = "Project description"
+authors = ["Raman <roman.s@p2p.org>"]
+license = "MIT License"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+prometheus-client = "0.13.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "7.1.1"
+pytest-cov = "^3.0.0"
+pre-commit = "2.17.0"
+isort = "^5.10.1"
+mypy = "^0.942"
+pylint = "^2.13.4"
+black = "^22.3.0"

@@ -1,0 +1,11 @@
+name: Linters
+
+on: pull_request
+
+jobs:
+  python:
+    uses: lidofinance/linters/.github/workflows/python.yml@master
+    with:
+      dirs: myproject tests # TODO don't forget rename this
+  security:
+    uses: lidofinance/linters/.github/workflows/security.yml@master
