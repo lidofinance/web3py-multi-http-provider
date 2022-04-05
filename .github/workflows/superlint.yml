@@ -20,7 +20,7 @@ jobs:
 
       - name: Running mypy
         run: |
-          poetry run mypy myproject
+          poetry run mypy web3_multi_provider
 
       - name: Super-Linter
         uses: github/super-linter@v4.8.5
