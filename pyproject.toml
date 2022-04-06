@@ -11,8 +11,7 @@ include = [
 
 [tool.poetry.dependencies]
 python = "^3.9"
-prometheus-client = "0.13.1"
-web3 = "^5.28.0"
+web3 = "^5.25"
 
 [tool.poetry.dev-dependencies]
 pytest = "7.1.1"
