@@ -8,7 +8,7 @@ from web3.types import RPCEndpoint, RPCResponse
 logger = logging.getLogger(__name__)
 
 
-class NoActiveProvider(Exception):
+class NoActiveProviderError(Exception):
     """Base exception if all providers are offline"""
 
 
@@ -29,6 +29,7 @@ class MultiHTTPProvider(HTTPProvider):
         request_kwargs: Optional[Any] = None,
         session: Optional[Any] = None,
     ):
+        logger.info({"msg": "Initialize MultiHTTPProvider"})
         self._hosts_uri = endpoint_urls
         self._http_providers = [
             HTTPProvider(host_uri, request_kwargs, session)
@@ -42,7 +43,7 @@ class MultiHTTPProvider(HTTPProvider):
             response = self._http_providers[self._current_provider_index].make_request(
                 method, params
             )
-            logger.info(
+            logger.debug(
                 {
                     "msg": "Send request using MultiHTTPProvider.",
                     "method": method,
@@ -73,6 +74,6 @@ class MultiHTTPProvider(HTTPProvider):
             if self._last_working_provider_index == self._current_provider_index:
                 msg = "No active provider available."
                 logger.error({"msg": msg})
-                raise NoActiveProvider(msg) from error
+                raise NoActiveProviderError(msg) from error
 
             return self.make_request(method, params)

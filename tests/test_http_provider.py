@@ -6,7 +6,7 @@ import pytest
 from web3 import Web3
 
 from web3_multi_provider import MultiHTTPProvider
-from web3_multi_provider.multi_http_provider import NoActiveProvider
+from web3_multi_provider.multi_http_provider import NoActiveProviderError
 
 
 def mocked_requests_get(
@@ -83,7 +83,7 @@ class HttpProviderTestCase(TestCase):
         w3 = Web3(provider)
 
         with self._caplog.at_level(logging.INFO):
-            with self.assertRaises(NoActiveProvider):
+            with self.assertRaises(NoActiveProviderError):
                 w3.eth.get_block("latest")
 
         # Make sure there is no inf recursion
