@@ -37,7 +37,7 @@ class HttpProviderTestCase(TestCase):
 
         w3 = Web3(provider)
 
-        with self._caplog.at_level(logging.INFO):
+        with self._caplog.at_level(logging.DEBUG):
             w3.eth.get_block("latest")
             w3.eth.get_block("latest")
 
@@ -47,7 +47,7 @@ class HttpProviderTestCase(TestCase):
                 "error": "Mocked connection error.",
                 "provider": "http://127.0.0.1:9001",
             },
-            self._caplog.records[0].msg,
+            self._caplog.records[2].msg,
         )
         self.assertDictEqual(
             {
@@ -56,7 +56,7 @@ class HttpProviderTestCase(TestCase):
                 "params": "('latest', False)",
                 "provider": "http://127.0.0.1:9000",
             },
-            self._caplog.records[1].msg,
+            self._caplog.records[5].msg,
         )
         # Make sure second request will be directory to second provider and will ignore second one
         self.assertDictEqual(
@@ -66,7 +66,7 @@ class HttpProviderTestCase(TestCase):
                 "params": "('latest', False)",
                 "provider": "http://127.0.0.1:9000",
             },
-            self._caplog.records[2].msg,
+            self._caplog.records[9].msg,
         )
 
     @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
