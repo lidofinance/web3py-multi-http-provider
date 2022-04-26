@@ -47,7 +47,10 @@ class MultiHTTPProvider(HTTPProvider):
             )
 
             if method in (RPC.eth_getBlockByHash, RPC.eth_getBlockByNumber):
-                if "proofOfAuthorityData" not in response["result"]:
+                if (
+                    "result" in response
+                    and "proofOfAuthorityData" not in response["result"]
+                ):
                     response["result"] = geth_poa_cleanup(response["result"])
 
             logger.debug(
