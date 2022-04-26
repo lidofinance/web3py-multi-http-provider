@@ -3,6 +3,8 @@ from typing import Any, List, Optional, Union
 
 from eth_typing import URI
 from web3 import HTTPProvider
+from web3._utils.rpc_abi import RPC
+from web3.middleware.geth_poa import geth_poa_cleanup
 from web3.types import RPCEndpoint, RPCResponse
 
 logger = logging.getLogger(__name__)
@@ -43,6 +45,11 @@ class MultiHTTPProvider(HTTPProvider):
             response = self._http_providers[self._current_provider_index].make_request(
                 method, params
             )
+
+            if method in (RPC.eth_getBlockByHash, RPC.eth_getBlockByNumber):
+                if "proofOfAuthorityData" not in response["result"]:
+                    response["result"] = geth_poa_cleanup(response["result"])
+
             logger.debug(
                 {
                     "msg": "Send request using MultiHTTPProvider.",
