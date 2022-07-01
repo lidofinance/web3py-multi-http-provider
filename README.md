@@ -12,7 +12,7 @@ $ pip install web3-multi-provider
 ```  
 or  
 ```bash
-$ pertry add web3-multi-provider
+$ poertry add web3-multi-provider
 ```  
 
 ## Usage
