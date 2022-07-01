@@ -12,7 +12,7 @@ $ pip install web3-multi-provider
 ```  
 or  
 ```bash
-$ poertry add web3-multi-provider
+$ poetry add web3-multi-provider
 ```  
 
 ## Usage
