@@ -42,14 +42,17 @@ class MultiProvider(HTTPProvider):
         self._http_providers = []
 
         for host_uri in endpoint_urls:
-            if host_uri.startswith('ws'):
-                self._http_providers.append(WebsocketProvider(host_uri, websocket_kwargs, websocket_timeout))
-            elif host_uri.startswith('http'):
-                self._http_providers.append(HTTPProvider(host_uri, request_kwargs, session))
+            if host_uri.startswith("ws"):
+                self._http_providers.append(
+                    WebsocketProvider(host_uri, websocket_kwargs, websocket_timeout)
+                )
+            elif host_uri.startswith("http"):
+                self._http_providers.append(
+                    HTTPProvider(host_uri, request_kwargs, session)
+                )
             else:
-                protocol = host_uri.split('://')[0]
+                protocol = host_uri.split("://")[0]
                 raise ProtocolNotSupported(f'Protocol "{protocol}" is not supported.')
-
 
         super().__init__(endpoint_urls[0], request_kwargs, session)
 
@@ -106,6 +109,7 @@ class MultiHTTPProvider(MultiProvider):
     """
     Deprecated. Use MultiProvider instead
     """
+
     def __init__(
         self,
         endpoint_urls: List[Union[URI, str]],
@@ -113,5 +117,10 @@ class MultiHTTPProvider(MultiProvider):
         session: Optional[Any] = None,
     ):
         import warnings
-        warnings.warn('MultiHTTPProvider is deprecated. Use MultiProvider instead.', DeprecationWarning, stacklevel=2)
+
+        warnings.warn(
+            "MultiHTTPProvider is deprecated. Use MultiProvider instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__(endpoint_urls, request_kwargs, session)
