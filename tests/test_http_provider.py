@@ -5,8 +5,8 @@ from unittest.mock import patch
 import pytest
 from web3 import Web3
 
-from web3_multi_provider import MultiHTTPProvider
-from web3_multi_provider.multi_http_provider import NoActiveProviderError
+from web3_multi_provider import MultiProvider
+from web3_multi_provider.multi_http_provider import NoActiveProviderError, MultiHTTPProvider, ProtocolNotSupported
 
 
 def mocked_requests_get(
@@ -28,7 +28,35 @@ class HttpProviderTestCase(TestCase):
 
     @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
     def test_one_http_provider_works(self, make_post_request):
-        provider = MultiHTTPProvider(
+        # Ignore deprecation warnings
+        self.one_provider_works(MultiHTTPProvider)
+
+    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    def test_one_provider_works(self, make_post_request):
+        self.one_provider_works(MultiProvider)
+
+    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    def test_nothing_works(self, make_post_request):
+        self._caplog.set_level(logging.WARNING)
+
+        provider = MultiProvider(
+            [
+                "http://127.0.0.1:9001",
+                "http://127.0.0.1:9002",
+            ]
+        )
+
+        w3 = Web3(provider)
+
+        with self._caplog.at_level(logging.INFO):
+            with self.assertRaises(NoActiveProviderError):
+                w3.eth.get_block("latest")
+
+        # Make sure there is no inf recursion
+        self.assertEqual(len(self._caplog.records), 3)
+
+    def one_provider_works(self, provider_class):
+        provider = MultiProvider(
             [
                 "http://127.0.0.1:9001",
                 "http://127.0.0.1:9000",
@@ -51,7 +79,7 @@ class HttpProviderTestCase(TestCase):
         )
         self.assertDictEqual(
             {
-                "msg": "Send request using MultiHTTPProvider.",
+                "msg": "Send request using MultiProvider.",
                 "method": "eth_getBlockByNumber",
                 "params": "('latest', False)",
                 "provider": "http://127.0.0.1:9000",
@@ -61,7 +89,7 @@ class HttpProviderTestCase(TestCase):
         # Make sure second request will be directory to second provider and will ignore second one
         self.assertDictEqual(
             {
-                "msg": "Send request using MultiHTTPProvider.",
+                "msg": "Send request using MultiProvider.",
                 "method": "eth_getBlockByNumber",
                 "params": "('latest', False)",
                 "provider": "http://127.0.0.1:9000",
@@ -69,22 +97,11 @@ class HttpProviderTestCase(TestCase):
             self._caplog.records[9].msg,
         )
 
-    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
-    def test_nothing_works(self, make_post_request):
-        self._caplog.set_level(logging.WARNING)
+    def test_protocols_support(self):
+        MultiProvider(["http://127.0.0.1:9001"])
+        MultiProvider(["https://127.0.0.1:9001"])
+        MultiProvider(["ws://127.0.0.1:9001"])
+        MultiProvider(["wss://127.0.0.1:9001"])
 
-        provider = MultiHTTPProvider(
-            [
-                "http://127.0.0.1:9001",
-                "http://127.0.0.1:9002",
-            ]
-        )
-
-        w3 = Web3(provider)
-
-        with self._caplog.at_level(logging.INFO):
-            with self.assertRaises(NoActiveProviderError):
-                w3.eth.get_block("latest")
-
-        # Make sure there is no inf recursion
-        self.assertEqual(len(self._caplog.records), 3)
+        with self.assertRaises(ProtocolNotSupported):
+            MultiProvider(["ipc://127.0.0.1:9001"])

@@ -19,9 +19,9 @@ $ pertry add web3-multi-provider
 
 ```py
 from web3 import Web3
-from web3_multi_provider import MultiHTTPProvider
+from web3_multi_provider import MultiProvider
 
-w3 = Web3(MultiHTTPProvider([  # RPC endpoints list
+w3 = Web3(MultiProvider([  # RPC endpoints list
     'https://mainnet.infura.io/v3/...',  # RPC endpoint 2
     'http://127.0.0.1:8000/',  # RPC endpoint 1
 ]))

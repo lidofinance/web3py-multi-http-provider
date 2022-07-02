@@ -2,7 +2,7 @@ import logging
 from typing import Any, List, Optional, Union
 
 from eth_typing import URI
-from web3 import HTTPProvider
+from web3 import HTTPProvider, WebsocketProvider
 from web3._utils.rpc_abi import RPC
 from web3.middleware.geth_poa import geth_poa_cleanup
 from web3.types import RPCEndpoint, RPCResponse
@@ -14,14 +14,18 @@ class NoActiveProviderError(Exception):
     """Base exception if all providers are offline"""
 
 
-class MultiHTTPProvider(HTTPProvider):
+class ProtocolNotSupported(Exception):
+    """Supported protocols: http, https, ws, wss"""
+
+
+class MultiProvider(HTTPProvider):
     """
-    Provider that switches rpc endpoint if default one is broken.
+    Provider that switches rpc endpoint to next if current is broken.
 
     Does not support subscriptions for now.
     """
 
-    _http_providers: List[HTTPProvider] = []
+    _http_providers: List[Union[HTTPProvider, WebsocketProvider]] = []
     _current_provider_index: int = 0
     _last_working_provider_index: int = 0
 
@@ -30,13 +34,22 @@ class MultiHTTPProvider(HTTPProvider):
         endpoint_urls: List[Union[URI, str]],
         request_kwargs: Optional[Any] = None,
         session: Optional[Any] = None,
+        websocket_kwargs: Optional[Any] = None,
+        websocket_timeout: Optional[Any] = None,
     ):
         logger.info({"msg": "Initialize MultiHTTPProvider"})
         self._hosts_uri = endpoint_urls
-        self._http_providers = [
-            HTTPProvider(host_uri, request_kwargs, session)
-            for host_uri in endpoint_urls
-        ]
+        self._http_providers = []
+
+        for host_uri in endpoint_urls:
+            if host_uri.startswith('ws'):
+                self._http_providers.append(WebsocketProvider(host_uri, websocket_kwargs, websocket_timeout))
+            elif host_uri.startswith('http'):
+                self._http_providers.append(HTTPProvider(host_uri, request_kwargs, session))
+            else:
+                protocol = host_uri.split('://')[0]
+                raise ProtocolNotSupported(f'Protocol "{protocol}" is not supported.')
+
 
         super().__init__(endpoint_urls[0], request_kwargs, session)
 
@@ -55,7 +68,7 @@ class MultiHTTPProvider(HTTPProvider):
 
             logger.debug(
                 {
-                    "msg": "Send request using MultiHTTPProvider.",
+                    "msg": "Send request using MultiProvider.",
                     "method": method,
                     "params": str(params),
                     "provider": self._http_providers[
@@ -87,3 +100,18 @@ class MultiHTTPProvider(HTTPProvider):
                 raise NoActiveProviderError(msg) from error
 
             return self.make_request(method, params)
+
+
+class MultiHTTPProvider(MultiProvider):
+    """
+    Deprecated. Use MultiProvider instead
+    """
+    def __init__(
+        self,
+        endpoint_urls: List[Union[URI, str]],
+        request_kwargs: Optional[Any] = None,
+        session: Optional[Any] = None,
+    ):
+        import warnings
+        warnings.warn('MultiHTTPProvider is deprecated. Use MultiProvider instead.', DeprecationWarning, stacklevel=2)
+        super().__init__(endpoint_urls, request_kwargs, session)
