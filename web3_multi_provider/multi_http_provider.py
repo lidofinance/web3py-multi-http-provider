@@ -21,8 +21,6 @@ class ProtocolNotSupported(Exception):
 class MultiProvider(HTTPProvider):
     """
     Provider that switches rpc endpoint to next if current is broken.
-
-    Does not support subscriptions for now.
     """
 
     _http_providers: List[Union[HTTPProvider, WebsocketProvider]] = []
