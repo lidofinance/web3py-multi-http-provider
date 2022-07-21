@@ -23,7 +23,7 @@ class MultiProvider(HTTPProvider):
     Provider that switches rpc endpoint to next if current is broken.
     """
 
-    _http_providers: List[Union[HTTPProvider, WebsocketProvider]] = []
+    _providers: List[Union[HTTPProvider, WebsocketProvider]] = []
     _current_provider_index: int = 0
     _last_working_provider_index: int = 0
 
@@ -37,15 +37,15 @@ class MultiProvider(HTTPProvider):
     ):
         logger.info({"msg": "Initialize MultiHTTPProvider"})
         self._hosts_uri = endpoint_urls
-        self._http_providers = []
+        self._providers = []
 
         for host_uri in endpoint_urls:
             if host_uri.startswith("ws"):
-                self._http_providers.append(
+                self._providers.append(
                     WebsocketProvider(host_uri, websocket_kwargs, websocket_timeout)
                 )
             elif host_uri.startswith("http"):
-                self._http_providers.append(
+                self._providers.append(
                     HTTPProvider(host_uri, request_kwargs, session)
                 )
             else:
@@ -56,7 +56,7 @@ class MultiProvider(HTTPProvider):
 
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
         try:
-            response = self._http_providers[self._current_provider_index].make_request(
+            response = self._providers[self._current_provider_index].make_request(
                 method, params
             )
 
@@ -72,7 +72,7 @@ class MultiProvider(HTTPProvider):
                     "msg": "Send request using MultiProvider.",
                     "method": method,
                     "params": str(params),
-                    "provider": self._http_providers[
+                    "provider": self._providers[
                         self._current_provider_index
                     ].endpoint_uri,
                 }
@@ -85,7 +85,7 @@ class MultiProvider(HTTPProvider):
                 {
                     "msg": "Provider not responding.",
                     "error": str(error),
-                    "provider": self._http_providers[
+                    "provider": self._providers[
                         self._current_provider_index
                     ].endpoint_uri,
                 }
@@ -94,6 +94,8 @@ class MultiProvider(HTTPProvider):
             self._current_provider_index = (self._current_provider_index + 1) % len(
                 self._hosts_uri
             )
+
+            self.endpoint_uri = self._providers[self._current_provider_index].endpoint_uri
 
             if self._last_working_provider_index == self._current_provider_index:
                 msg = "No active provider available."
