@@ -4,7 +4,10 @@ from typing import Any, List, Optional, Union
 from eth_typing import URI
 from web3 import HTTPProvider, WebsocketProvider
 from web3._utils.rpc_abi import RPC
+from web3.exceptions import ExtraDataLengthError
 from web3.middleware.geth_poa import geth_poa_cleanup
+from web3.middleware.validation import _check_extradata_length
+from web3.providers import JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
 logger = logging.getLogger(__name__)
@@ -18,7 +21,7 @@ class ProtocolNotSupported(Exception):
     """Supported protocols: http, https, ws, wss"""
 
 
-class MultiProvider(HTTPProvider):
+class MultiProvider(JSONBaseProvider):
     """
     Provider that switches rpc endpoint to next if current is broken.
     """
@@ -39,6 +42,9 @@ class MultiProvider(HTTPProvider):
         self._hosts_uri = endpoint_urls
         self._providers = []
 
+        if endpoint_urls:
+            self.endpoint_uri = endpoint_urls[0]
+
         for host_uri in endpoint_urls:
             if host_uri.startswith("ws"):
                 self._providers.append(
@@ -52,50 +58,27 @@ class MultiProvider(HTTPProvider):
                 protocol = host_uri.split("://")[0]
                 raise ProtocolNotSupported(f'Protocol "{protocol}" is not supported.')
 
-        super().__init__(endpoint_urls[0], request_kwargs, session)
+        super().__init__()
 
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
+        provider = self._providers[self._current_provider_index]
+
         try:
-            response = self._providers[self._current_provider_index].make_request(
-                method, params
-            )
-
-            if method in (RPC.eth_getBlockByHash, RPC.eth_getBlockByNumber):
-                if (
-                    "result" in response
-                    and "proofOfAuthorityData" not in response["result"]
-                ):
-                    response["result"] = geth_poa_cleanup(response["result"])
-
-            logger.debug(
-                {
-                    "msg": "Send request using MultiProvider.",
-                    "method": method,
-                    "params": str(params),
-                    "provider": self._providers[
-                        self._current_provider_index
-                    ].endpoint_uri,
-                }
-            )
-            self._last_working_provider_index = self._current_provider_index
-            return response
-
+            response = provider.make_request(method, params)
         except Exception as error:  # pylint: disable=W0703
             logger.warning(
                 {
                     "msg": "Provider not responding.",
                     "error": str(error),
-                    "provider": self._providers[
-                        self._current_provider_index
-                    ].endpoint_uri,
+                    "provider": provider.endpoint_uri,
                 }
             )
 
-            self._current_provider_index = (self._current_provider_index + 1) % len(
-                self._hosts_uri
-            )
+            self._current_provider_index = (self._current_provider_index + 1) % len(self._hosts_uri)
 
-            self.endpoint_uri = self._providers[self._current_provider_index].endpoint_uri
+            provider = self._providers[self._current_provider_index]
+
+            self.endpoint_uri = provider.endpoint_uri
 
             if self._last_working_provider_index == self._current_provider_index:
                 msg = "No active provider available."
@@ -103,6 +86,31 @@ class MultiProvider(HTTPProvider):
                 raise NoActiveProviderError(msg) from error
 
             return self.make_request(method, params)
+
+        else:
+            if method in (RPC.eth_getBlockByHash, RPC.eth_getBlockByNumber):
+                if (
+                    "result" in response
+                    and "extraData" in response["result"]
+                    and "proofOfAuthorityData" not in response["result"]
+                ):
+                    try:
+                        _check_extradata_length(response["result"]["extraData"])
+                    except ExtraDataLengthError:
+                        logger.debug({"msg": "PoA blockchain cleanup response."})
+                        response["result"] = geth_poa_cleanup(response["result"])
+
+            logger.debug(
+                {
+                    "msg": "Send request using MultiProvider.",
+                    "method": method,
+                    "params": str(params),
+                    "provider": provider.endpoint_uri,
+                }
+            )
+            self._last_working_provider_index = self._current_provider_index
+
+            return response
 
 
 class MultiHTTPProvider(MultiProvider):
