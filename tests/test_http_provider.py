@@ -24,6 +24,7 @@ def mocked_requests_get(
 
     raise ConnectionError("Mocked connection error.")
 
+
 def mocked_request_poa(
     endpoint_uri,
     data,
@@ -132,7 +133,7 @@ class HttpProviderTestCase(TestCase):
             [log.msg for log in self._caplog.records],
         )
 
-        self.assertIsNotNone(block.get('proofOfAuthorityData', None))
+        self.assertIsNotNone(block.get("proofOfAuthorityData", None))
 
     @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
     def test_pos_blockchain(self, make_post_request):
@@ -143,6 +144,9 @@ class HttpProviderTestCase(TestCase):
         with self._caplog.at_level(logging.DEBUG):
             block = w3.eth.get_block("latest")
 
-        self.assertIsNone(block.get('proofOfAuthorityData', None))
+        self.assertIsNone(block.get("proofOfAuthorityData", None))
 
-        self.assertNotIn({"msg": "PoA blockchain cleanup response."}, [log.msg for log in self._caplog.records])
+        self.assertNotIn(
+            {"msg": "PoA blockchain cleanup response."},
+            [log.msg for log in self._caplog.records],
+        )

@@ -51,9 +51,7 @@ class MultiProvider(JSONBaseProvider):
                     WebsocketProvider(host_uri, websocket_kwargs, websocket_timeout)
                 )
             elif host_uri.startswith("http"):
-                self._providers.append(
-                    HTTPProvider(host_uri, request_kwargs, session)
-                )
+                self._providers.append(HTTPProvider(host_uri, request_kwargs, session))
             else:
                 protocol = host_uri.split("://")[0]
                 raise ProtocolNotSupported(f'Protocol "{protocol}" is not supported.')
@@ -74,7 +72,9 @@ class MultiProvider(JSONBaseProvider):
                 }
             )
 
-            self._current_provider_index = (self._current_provider_index + 1) % len(self._hosts_uri)
+            self._current_provider_index = (self._current_provider_index + 1) % len(
+                self._hosts_uri
+            )
 
             provider = self._providers[self._current_provider_index]
 
