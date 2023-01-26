@@ -30,7 +30,7 @@ class MultiProvider(JSONBaseProvider):
     _current_provider_index: int = 0
     _last_working_provider_index: int = 0
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         endpoint_urls: List[Union[URI, str]],
         request_kwargs: Optional[Any] = None,
@@ -91,7 +91,7 @@ class MultiProvider(JSONBaseProvider):
             if method in (RPC.eth_getBlockByHash, RPC.eth_getBlockByNumber):
                 if (
                     "result" in response
-                    and type(response["result"]) is dict
+                    and isinstance(response["result"], dict)
                     and "extraData" in response["result"]
                     and "proofOfAuthorityData" not in response["result"]
                 ):
@@ -125,7 +125,7 @@ class MultiHTTPProvider(MultiProvider):
         request_kwargs: Optional[Any] = None,
         session: Optional[Any] = None,
     ):
-        import warnings
+        import warnings  # pylint: disable=import-outside-toplevel
 
         warnings.warn(
             "MultiHTTPProvider is deprecated. Use MultiProvider instead.",

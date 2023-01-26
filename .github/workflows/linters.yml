@@ -6,6 +6,6 @@ jobs:
   python:
     uses: lidofinance/linters/.github/workflows/python.yml@master
     with:
-      dirs: web3_multi_provider tests
+      dirs: web3_multi_provider
   security:
     uses: lidofinance/linters/.github/workflows/security.yml@master
