@@ -91,6 +91,7 @@ class MultiProvider(JSONBaseProvider):
             if method in (RPC.eth_getBlockByHash, RPC.eth_getBlockByNumber):
                 if (
                     "result" in response
+                    and type(response["result"]) is dict
                     and "extraData" in response["result"]
                     and "proofOfAuthorityData" not in response["result"]
                 ):
