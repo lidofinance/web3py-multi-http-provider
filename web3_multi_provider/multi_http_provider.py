@@ -72,9 +72,7 @@ class MultiProvider(JSONBaseProvider):
                 }
             )
 
-            self._current_provider_index = (self._current_provider_index + 1) % len(
-                self._hosts_uri
-            )
+            self._current_provider_index = (self._current_provider_index + 1) % len(self._hosts_uri)
 
             provider = self._providers[self._current_provider_index]
 
