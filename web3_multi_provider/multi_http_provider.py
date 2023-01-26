@@ -30,7 +30,7 @@ class MultiProvider(JSONBaseProvider):
     _current_provider_index: int = 0
     _last_working_provider_index: int = 0
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         endpoint_urls: List[Union[URI, str]],
         request_kwargs: Optional[Any] = None,
@@ -51,9 +51,7 @@ class MultiProvider(JSONBaseProvider):
                     WebsocketProvider(host_uri, websocket_kwargs, websocket_timeout)
                 )
             elif host_uri.startswith("http"):
-                self._providers.append(
-                    HTTPProvider(host_uri, request_kwargs, session)
-                )
+                self._providers.append(HTTPProvider(host_uri, request_kwargs, session))
             else:
                 protocol = host_uri.split("://")[0]
                 raise ProtocolNotSupported(f'Protocol "{protocol}" is not supported.')
@@ -91,6 +89,7 @@ class MultiProvider(JSONBaseProvider):
             if method in (RPC.eth_getBlockByHash, RPC.eth_getBlockByNumber):
                 if (
                     "result" in response
+                    and isinstance(response["result"], dict)
                     and "extraData" in response["result"]
                     and "proofOfAuthorityData" not in response["result"]
                 ):
@@ -124,7 +123,7 @@ class MultiHTTPProvider(MultiProvider):
         request_kwargs: Optional[Any] = None,
         session: Optional[Any] = None,
     ):
-        import warnings
+        import warnings  # pylint: disable=import-outside-toplevel
 
         warnings.warn(
             "MultiHTTPProvider is deprecated. Use MultiProvider instead.",
