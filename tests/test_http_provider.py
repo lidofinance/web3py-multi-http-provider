@@ -7,8 +7,8 @@ from web3 import Web3
 
 from web3_multi_provider import MultiProvider
 from web3_multi_provider.multi_http_provider import (
-    NoActiveProviderError,
     MultiHTTPProvider,
+    NoActiveProviderError,
     ProtocolNotSupported,
 )
 
