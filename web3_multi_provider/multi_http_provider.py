@@ -86,18 +86,7 @@ class MultiProvider(JSONBaseProvider):
             return self.make_request(method, params)
 
         else:
-            if method in (RPC.eth_getBlockByHash, RPC.eth_getBlockByNumber):
-                if (
-                    "result" in response
-                    and isinstance(response["result"], dict)
-                    and "extraData" in response["result"]
-                    and "proofOfAuthorityData" not in response["result"]
-                ):
-                    try:
-                        _check_extradata_length(response["result"]["extraData"])
-                    except ExtraDataLengthError:
-                        logger.debug({"msg": "PoA blockchain cleanup response."})
-                        response["result"] = geth_poa_cleanup(response["result"])
+            self._sanitize_poa_response(method, response)
 
             logger.debug(
                 {
@@ -110,6 +99,53 @@ class MultiProvider(JSONBaseProvider):
             self._last_working_provider_index = self._current_provider_index
 
             return response
+
+    def _sanitize_poa_response(self, method: RPCEndpoint, response: RPCResponse) -> None:
+        if method in (RPC.eth_getBlockByHash, RPC.eth_getBlockByNumber):
+            if (
+                "result" in response
+                and isinstance(response["result"], dict)
+                and "extraData" in response["result"]
+                and "proofOfAuthorityData" not in response["result"]
+            ):
+                try:
+                    _check_extradata_length(response["result"]["extraData"])
+                except ExtraDataLengthError:
+                    logger.debug({"msg": "PoA blockchain cleanup response."})
+                    response["result"] = geth_poa_cleanup(response["result"])
+
+
+class FallbackProvider(MultiProvider):
+    """Basic fallback provider"""
+
+    def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
+        for provider in self._providers:
+            try:
+                response = provider.make_request(method, params)
+            except Exception as error:  # pylint: disable=broad-except
+                logger.warning(
+                    {
+                        "msg": "Provider not responding.",
+                        "error": str(error),
+                        "provider": provider.endpoint_uri,
+                    }
+                )
+            else:
+                self._sanitize_poa_response(method, response)
+
+                logger.debug(
+                    {
+                        "msg": "Send request using FallbackProvider.",
+                        "method": method,
+                        "params": str(params),
+                        "provider": provider.endpoint_uri,
+                    }
+                )
+                return response
+
+        msg = "No active provider available."
+        logger.error({"msg": msg})
+        raise NoActiveProviderError(msg)
 
 
 class MultiHTTPProvider(MultiProvider):
