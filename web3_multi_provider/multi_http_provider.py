@@ -72,7 +72,9 @@ class MultiProvider(JSONBaseProvider):
                 }
             )
 
-            self._current_provider_index = (self._current_provider_index + 1) % len(self._hosts_uri)
+            self._current_provider_index = (self._current_provider_index + 1) % len(
+                self._hosts_uri
+            )
 
             provider = self._providers[self._current_provider_index]
 
@@ -100,7 +102,8 @@ class MultiProvider(JSONBaseProvider):
 
             return response
 
-    def _sanitize_poa_response(self, method: RPCEndpoint, response: RPCResponse) -> None:
+    @staticmethod
+    def _sanitize_poa_response(method: RPCEndpoint, response: RPCResponse) -> None:
         if method in (RPC.eth_getBlockByHash, RPC.eth_getBlockByNumber):
             if (
                 "result" in response
