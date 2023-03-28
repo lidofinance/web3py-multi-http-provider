@@ -1,12 +1,13 @@
 import logging
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from web3 import Web3
 
 from web3_multi_provider import MultiProvider
 from web3_multi_provider.multi_http_provider import (
+    FallbackProvider,
     MultiHTTPProvider,
     NoActiveProviderError,
     ProtocolNotSupported,
@@ -150,3 +151,87 @@ class HttpProviderTestCase(TestCase):
             {"msg": "PoA blockchain cleanup response."},
             [log.msg for log in self._caplog.records],
         )
+
+
+class TestFallbackProvider:
+    def test_no_endpoints(self):
+        w3 = Web3(FallbackProvider([]))
+
+        with pytest.raises(NoActiveProviderError):
+            w3.eth.get_block("latest")
+
+    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    def test_one_endpoint(self, make_post_request: Mock):
+        w3 = Web3(
+            FallbackProvider(
+                [
+                    "http://127.0.0.1:9000",
+                ]
+            )
+        )
+        w3.eth.get_block("latest")
+        make_post_request.assert_called_once()
+
+    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    def test_first_working(self, make_post_request: Mock):
+        w3 = Web3(
+            FallbackProvider(
+                [
+                    "http://127.0.0.1:9000",
+                    "http://127.0.0.1:9001",
+                ]
+            )
+        )
+        w3.eth.get_block("latest")
+        make_post_request.assert_called_once()
+        assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
+
+    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    def test_all_endpoints_fail(self, make_post_request: Mock):
+        w3 = Web3(
+            FallbackProvider(
+                [
+                    "http://127.0.0.1:9001",
+                    "http://127.0.0.1:9002",
+                    "http://127.0.0.1:9003",
+                ]
+            )
+        )
+
+        with pytest.raises(NoActiveProviderError):
+            w3.eth.get_block("latest")
+
+        assert make_post_request.call_count == 3
+        assert make_post_request.call_args.args[0] == "http://127.0.0.1:9003"
+
+    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    def test_one_endpoint_works(self, make_post_request: Mock):
+        w3 = Web3(
+            FallbackProvider(
+                [
+                    "http://127.0.0.1:9001",
+                    "http://127.0.0.1:9000",
+                ]
+            )
+        )
+
+        w3.eth.get_block("latest")
+        assert make_post_request.call_count == 2
+        assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
+
+    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    def test_starts_from_the_first(self, make_post_request: Mock):
+        w3 = Web3(
+            FallbackProvider(
+                [
+                    "http://127.0.0.1:9001",
+                    "http://127.0.0.1:9000",
+                ]
+            )
+        )
+
+        w3.eth.get_block("latest")
+        w3.eth.get_block("latest")
+
+        assert make_post_request.call_count == 4
+        assert make_post_request.call_args_list[-2].args[0] == "http://127.0.0.1:9001"

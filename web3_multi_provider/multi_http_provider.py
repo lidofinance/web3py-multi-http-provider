@@ -1,4 +1,5 @@
 import logging
+from abc import ABC
 from typing import Any, List, Optional, Union
 
 from eth_typing import URI
@@ -21,14 +22,10 @@ class ProtocolNotSupported(Exception):
     """Supported protocols: http, https, ws, wss"""
 
 
-class MultiProvider(JSONBaseProvider):
-    """
-    Provider that switches rpc endpoint to next if current is broken.
-    """
+class BaseMultiProvider(JSONBaseProvider, ABC):
+    """Base provider for providers with multiple endpoints"""
 
     _providers: List[Union[HTTPProvider, WebsocketProvider]] = []
-    _current_provider_index: int = 0
-    _last_working_provider_index: int = 0
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
@@ -38,7 +35,7 @@ class MultiProvider(JSONBaseProvider):
         websocket_kwargs: Optional[Any] = None,
         websocket_timeout: Optional[Any] = None,
     ):
-        logger.info({"msg": "Initialize MultiHTTPProvider"})
+        logger.info({"msg": f"Initialize {self.__class__.__name__}"})
         self._hosts_uri = endpoint_urls
         self._providers = []
 
@@ -58,6 +55,30 @@ class MultiProvider(JSONBaseProvider):
 
         super().__init__()
 
+    @staticmethod
+    def _sanitize_poa_response(method: RPCEndpoint, response: RPCResponse) -> None:
+        if method in (RPC.eth_getBlockByHash, RPC.eth_getBlockByNumber):
+            if (
+                "result" in response
+                and isinstance(response["result"], dict)
+                and "extraData" in response["result"]
+                and "proofOfAuthorityData" not in response["result"]
+            ):
+                try:
+                    _check_extradata_length(response["result"]["extraData"])
+                except ExtraDataLengthError:
+                    logger.debug({"msg": "PoA blockchain cleanup response."})
+                    response["result"] = geth_poa_cleanup(response["result"])
+
+
+class MultiProvider(BaseMultiProvider):
+    """
+    Provider that switches rpc endpoint to next if current is broken.
+    """
+
+    _current_provider_index: int = 0
+    _last_working_provider_index: int = 0
+
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
         provider = self._providers[self._current_provider_index]
 
@@ -72,7 +93,9 @@ class MultiProvider(JSONBaseProvider):
                 }
             )
 
-            self._current_provider_index = (self._current_provider_index + 1) % len(self._hosts_uri)
+            self._current_provider_index = (self._current_provider_index + 1) % len(
+                self._hosts_uri
+            )
 
             provider = self._providers[self._current_provider_index]
 
@@ -86,18 +109,7 @@ class MultiProvider(JSONBaseProvider):
             return self.make_request(method, params)
 
         else:
-            if method in (RPC.eth_getBlockByHash, RPC.eth_getBlockByNumber):
-                if (
-                    "result" in response
-                    and isinstance(response["result"], dict)
-                    and "extraData" in response["result"]
-                    and "proofOfAuthorityData" not in response["result"]
-                ):
-                    try:
-                        _check_extradata_length(response["result"]["extraData"])
-                    except ExtraDataLengthError:
-                        logger.debug({"msg": "PoA blockchain cleanup response."})
-                        response["result"] = geth_poa_cleanup(response["result"])
+            self._sanitize_poa_response(method, response)
 
             logger.debug(
                 {
@@ -110,6 +122,39 @@ class MultiProvider(JSONBaseProvider):
             self._last_working_provider_index = self._current_provider_index
 
             return response
+
+
+class FallbackProvider(BaseMultiProvider):
+    """Basic fallback provider"""
+
+    def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
+        for provider in self._providers:
+            try:
+                response = provider.make_request(method, params)
+            except Exception as error:  # pylint: disable=broad-except
+                logger.warning(
+                    {
+                        "msg": "Provider not responding.",
+                        "error": str(error),
+                        "provider": provider.endpoint_uri,
+                    }
+                )
+            else:
+                self._sanitize_poa_response(method, response)
+
+                logger.debug(
+                    {
+                        "msg": "Send request using FallbackProvider.",
+                        "method": method,
+                        "params": str(params),
+                        "provider": provider.endpoint_uri,
+                    }
+                )
+                return response
+
+        msg = "No active provider available."
+        logger.error({"msg": msg})
+        raise NoActiveProviderError(msg)
 
 
 class MultiHTTPProvider(MultiProvider):
