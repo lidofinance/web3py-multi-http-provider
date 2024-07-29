@@ -51,7 +51,7 @@ class HttpProviderTestCase(TestCase):
 
     @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
     def test_nothing_works(self, make_post_request):
-        self._caplog.set_level(logging.DEBUG)
+        self._caplog.set_level(logging.WARNING)
 
         provider = MultiProvider(
             [
@@ -62,12 +62,12 @@ class HttpProviderTestCase(TestCase):
 
         w3 = Web3(provider)
 
-        with self._caplog.at_level(logging.INFO):
+        with self._caplog.at_level(logging.DEBUG):
             with self.assertRaises(NoActiveProviderError):
                 w3.eth.get_block("latest")
 
         # Make sure there is no inf recursion
-        self.assertEqual(len(self._caplog.records), 3)
+        self.assertEqual(len(self._caplog.records), 6)
 
     def one_provider_works(self, provider_class):
         provider = provider_class(
