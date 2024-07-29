@@ -87,7 +87,6 @@ class HttpProviderTestCase(TestCase):
             {
                 "msg": "Provider not responding.",
                 "error": "Mocked connection error.",
-                "provider": "http://127.0.0.1:9001",
             },
             self._caplog.records[2].msg,
         )
@@ -96,7 +95,6 @@ class HttpProviderTestCase(TestCase):
                 "msg": "Send request using MultiProvider.",
                 "method": "eth_getBlockByNumber",
                 "params": "('latest', False)",
-                "provider": "http://127.0.0.1:9000",
             },
             self._caplog.records[5].msg,
         )
@@ -105,8 +103,6 @@ class HttpProviderTestCase(TestCase):
             {
                 "msg": "Send request using MultiProvider.",
                 "method": "eth_getBlockByNumber",
-                "params": "('latest', False)",
-                "provider": "http://127.0.0.1:9000",
             },
             self._caplog.records[9].msg,
         )
