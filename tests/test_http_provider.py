@@ -51,7 +51,7 @@ class HttpProviderTestCase(TestCase):
 
     @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
     def test_nothing_works(self, make_post_request):
-        self._caplog.set_level(logging.WARNING)
+        self._caplog.set_level(logging.DEBUG)
 
         provider = MultiProvider(
             [
@@ -103,6 +103,7 @@ class HttpProviderTestCase(TestCase):
             {
                 "msg": "Send request using MultiProvider.",
                 "method": "eth_getBlockByNumber",
+                "params": "('latest', False)",
             },
             self._caplog.records[9].msg,
         )

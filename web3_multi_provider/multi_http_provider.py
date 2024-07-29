@@ -101,7 +101,9 @@ class MultiProvider(BaseMultiProvider):
             self.endpoint_uri = provider.endpoint_uri
 
             if self._last_working_provider_index == self._current_provider_index:
-                raise NoActiveProviderError("No active provider available.") from error
+                msg = "No active provider available."
+                logger.debug({"msg": msg})
+                raise NoActiveProviderError(msg) from error
 
             return self.make_request(method, params)
 
@@ -144,7 +146,9 @@ class FallbackProvider(BaseMultiProvider):
                     }
                 )
                 return response
-        raise NoActiveProviderError("No active provider available.")
+        msg = "No active provider available."
+        logger.debug({"msg": msg})
+        raise NoActiveProviderError(msg)
 
 
 class MultiHTTPProvider(MultiProvider):
