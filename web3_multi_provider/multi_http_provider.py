@@ -85,11 +85,10 @@ class MultiProvider(BaseMultiProvider):
         try:
             response = provider.make_request(method, params)
         except Exception as error:  # pylint: disable=W0703
-            logger.warning(
+            logger.debug(
                 {
                     "msg": "Provider not responding.",
                     "error": str(error),
-                    "provider": provider.endpoint_uri,
                 }
             )
 
@@ -102,9 +101,7 @@ class MultiProvider(BaseMultiProvider):
             self.endpoint_uri = provider.endpoint_uri
 
             if self._last_working_provider_index == self._current_provider_index:
-                msg = "No active provider available."
-                logger.error({"msg": msg})
-                raise NoActiveProviderError(msg) from error
+                raise NoActiveProviderError("No active provider available.") from error
 
             return self.make_request(method, params)
 
@@ -116,11 +113,9 @@ class MultiProvider(BaseMultiProvider):
                     "msg": "Send request using MultiProvider.",
                     "method": method,
                     "params": str(params),
-                    "provider": provider.endpoint_uri,
                 }
             )
             self._last_working_provider_index = self._current_provider_index
-
             return response
 
 
@@ -132,11 +127,10 @@ class FallbackProvider(BaseMultiProvider):
             try:
                 response = provider.make_request(method, params)
             except Exception as error:  # pylint: disable=broad-except
-                logger.warning(
+                logger.debug(
                     {
                         "msg": "Provider not responding.",
                         "error": str(error),
-                        "provider": provider.endpoint_uri,
                     }
                 )
             else:
@@ -147,14 +141,10 @@ class FallbackProvider(BaseMultiProvider):
                         "msg": "Send request using FallbackProvider.",
                         "method": method,
                         "params": str(params),
-                        "provider": provider.endpoint_uri,
                     }
                 )
                 return response
-
-        msg = "No active provider available."
-        logger.error({"msg": msg})
-        raise NoActiveProviderError(msg)
+        raise NoActiveProviderError("No active provider available.")
 
 
 class MultiHTTPProvider(MultiProvider):
