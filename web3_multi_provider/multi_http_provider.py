@@ -162,11 +162,4 @@ class MultiHTTPProvider(MultiProvider):
         request_kwargs: Optional[Any] = None,
         session: Optional[Any] = None,
     ):
-        import warnings  # pylint: disable=import-outside-toplevel
-
-        warnings.warn(
-            "MultiHTTPProvider is deprecated. Use MultiProvider instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         super().__init__(endpoint_urls, request_kwargs, session)
