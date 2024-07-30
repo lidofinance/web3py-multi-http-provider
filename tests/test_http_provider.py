@@ -8,7 +8,6 @@ from web3 import Web3
 from web3_multi_provider import MultiProvider
 from web3_multi_provider.multi_http_provider import (
     FallbackProvider,
-    MultiHTTPProvider,
     NoActiveProviderError,
     ProtocolNotSupported,
 )
@@ -41,11 +40,6 @@ class HttpProviderTestCase(TestCase):
         self._caplog = caplog
 
     @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
-    def test_one_http_provider_works(self, make_post_request):
-        # Ignore deprecation warnings
-        self.one_provider_works(MultiHTTPProvider)
-
-    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
     def test_one_provider_works(self, make_post_request):
         self.one_provider_works(MultiProvider)
 
@@ -62,12 +56,12 @@ class HttpProviderTestCase(TestCase):
 
         w3 = Web3(provider)
 
-        with self._caplog.at_level(logging.INFO):
+        with self._caplog.at_level(logging.DEBUG):
             with self.assertRaises(NoActiveProviderError):
                 w3.eth.get_block("latest")
 
         # Make sure there is no inf recursion
-        self.assertEqual(len(self._caplog.records), 3)
+        self.assertEqual(len(self._caplog.records), 6)
 
     def one_provider_works(self, provider_class):
         provider = provider_class(
@@ -87,7 +81,6 @@ class HttpProviderTestCase(TestCase):
             {
                 "msg": "Provider not responding.",
                 "error": "Mocked connection error.",
-                "provider": "http://127.0.0.1:9001",
             },
             self._caplog.records[2].msg,
         )
@@ -96,7 +89,6 @@ class HttpProviderTestCase(TestCase):
                 "msg": "Send request using MultiProvider.",
                 "method": "eth_getBlockByNumber",
                 "params": "('latest', False)",
-                "provider": "http://127.0.0.1:9000",
             },
             self._caplog.records[5].msg,
         )
@@ -106,7 +98,6 @@ class HttpProviderTestCase(TestCase):
                 "msg": "Send request using MultiProvider.",
                 "method": "eth_getBlockByNumber",
                 "params": "('latest', False)",
-                "provider": "http://127.0.0.1:9000",
             },
             self._caplog.records[9].msg,
         )
