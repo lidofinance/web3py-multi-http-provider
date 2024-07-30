@@ -8,7 +8,6 @@ from web3 import Web3
 from web3_multi_provider import MultiProvider
 from web3_multi_provider.multi_http_provider import (
     FallbackProvider,
-    MultiHTTPProvider,
     NoActiveProviderError,
     ProtocolNotSupported,
 )
@@ -39,11 +38,6 @@ class HttpProviderTestCase(TestCase):
     @pytest.fixture(autouse=True)
     def __inject_fixtures(self, caplog):
         self._caplog = caplog
-
-    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
-    def test_one_http_provider_works(self, make_post_request):
-        # Ignore deprecation warnings
-        self.one_provider_works(MultiHTTPProvider)
 
     @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
     def test_one_provider_works(self, make_post_request):

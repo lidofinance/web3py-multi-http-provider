@@ -149,17 +149,3 @@ class FallbackProvider(BaseMultiProvider):
         msg = "No active provider available."
         logger.debug({"msg": msg})
         raise NoActiveProviderError(msg)
-
-
-class MultiHTTPProvider(MultiProvider):
-    """
-    Deprecated. Use MultiProvider instead
-    """
-
-    def __init__(
-        self,
-        endpoint_urls: List[Union[URI, str]],
-        request_kwargs: Optional[Any] = None,
-        session: Optional[Any] = None,
-    ):
-        super().__init__(endpoint_urls, request_kwargs, session)

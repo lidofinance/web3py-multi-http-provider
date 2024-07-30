@@ -1,6 +1,5 @@
 from .multi_http_provider import (
     FallbackProvider,
-    MultiHTTPProvider,
     MultiProvider,
     NoActiveProviderError,
     ProtocolNotSupported,
@@ -8,7 +7,6 @@ from .multi_http_provider import (
 
 __all__ = (
     "FallbackProvider",
-    "MultiHTTPProvider",
     "MultiProvider",
     "NoActiveProviderError",
     "ProtocolNotSupported",
