@@ -39,11 +39,11 @@ class HttpProviderTestCase(TestCase):
     def __inject_fixtures(self, caplog):
         self._caplog = caplog
 
-    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    @patch("web3._utils.http_session_manager.HTTPSessionManager.make_post_request", side_effect=mocked_requests_get)
     def test_one_provider_works(self, make_post_request):
         self.one_provider_works(MultiProvider)
 
-    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    @patch("web3._utils.http_session_manager.HTTPSessionManager.make_post_request", side_effect=mocked_requests_get)
     def test_nothing_works(self, make_post_request):
         self._caplog.set_level(logging.WARNING)
 
@@ -111,7 +111,7 @@ class HttpProviderTestCase(TestCase):
         with self.assertRaises(ProtocolNotSupported):
             MultiProvider(["ipc://127.0.0.1:9001"])
 
-    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_request_poa)
+    @patch("web3._utils.http_session_manager.HTTPSessionManager.make_post_request", side_effect=mocked_request_poa)
     def test_poa_blockchain(self, make_post_request):
         provider = MultiProvider(["http://127.0.0.1:9000"])
 
@@ -127,7 +127,7 @@ class HttpProviderTestCase(TestCase):
 
         self.assertIsNotNone(block.get("proofOfAuthorityData", None))
 
-    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    @patch("web3._utils.http_session_manager.HTTPSessionManager.make_post_request", side_effect=mocked_requests_get)
     def test_pos_blockchain(self, make_post_request):
         provider = MultiProvider(["http://127.0.0.1:9000"])
 
@@ -151,7 +151,7 @@ class TestFallbackProvider:
         with pytest.raises(NoActiveProviderError):
             w3.eth.get_block("latest")
 
-    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    @patch("web3._utils.http_session_manager.HTTPSessionManager.make_post_request", side_effect=mocked_requests_get)
     def test_one_endpoint(self, make_post_request: Mock):
         w3 = Web3(
             FallbackProvider(
@@ -163,7 +163,7 @@ class TestFallbackProvider:
         w3.eth.get_block("latest")
         make_post_request.assert_called_once()
 
-    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    @patch("web3._utils.http_session_manager.HTTPSessionManager.make_post_request", side_effect=mocked_requests_get)
     def test_first_working(self, make_post_request: Mock):
         w3 = Web3(
             FallbackProvider(
@@ -177,7 +177,7 @@ class TestFallbackProvider:
         make_post_request.assert_called_once()
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
 
-    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    @patch("web3._utils.http_session_manager.HTTPSessionManager.make_post_request", side_effect=mocked_requests_get)
     def test_all_endpoints_fail(self, make_post_request: Mock):
         w3 = Web3(
             FallbackProvider(
@@ -192,10 +192,11 @@ class TestFallbackProvider:
         with pytest.raises(NoActiveProviderError):
             w3.eth.get_block("latest")
 
+        breakpoint()
         assert make_post_request.call_count == 3
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9003"
 
-    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    @patch("web3._utils.http_session_manager.HTTPSessionManager.make_post_request", side_effect=mocked_requests_get)
     def test_one_endpoint_works(self, make_post_request: Mock):
         w3 = Web3(
             FallbackProvider(
@@ -210,7 +211,7 @@ class TestFallbackProvider:
         assert make_post_request.call_count == 2
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
 
-    @patch("web3.providers.rpc.make_post_request", side_effect=mocked_requests_get)
+    @patch("web3._utils.http_session_manager.HTTPSessionManager.make_post_request", side_effect=mocked_requests_get)
     def test_starts_from_the_first(self, make_post_request: Mock):
         w3 = Web3(
             FallbackProvider(

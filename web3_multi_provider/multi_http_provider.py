@@ -3,12 +3,13 @@ from abc import ABC
 from typing import Any, List, Optional, Union
 
 from eth_typing import URI
-from web3 import HTTPProvider, WebsocketProvider
+from web3 import HTTPProvider
 from web3._utils.rpc_abi import RPC
 from web3.exceptions import ExtraDataLengthError
-from web3.middleware.geth_poa import geth_poa_cleanup
+from web3.middleware.proof_of_authority import extradata_to_poa_cleanup
 from web3.middleware.validation import _check_extradata_length
 from web3.providers import JSONBaseProvider
+from web3.providers.persistent import WebSocketProvider
 from web3.types import RPCEndpoint, RPCResponse
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ class ProtocolNotSupported(Exception):
 class BaseMultiProvider(JSONBaseProvider, ABC):
     """Base provider for providers with multiple endpoints"""
 
-    _providers: List[Union[HTTPProvider, WebsocketProvider]] = []
+    _providers: List[Union[HTTPProvider, WebSocketProvider]] = []
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
@@ -45,7 +46,9 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
         for host_uri in endpoint_urls:
             if host_uri.startswith("ws"):
                 self._providers.append(
-                    WebsocketProvider(host_uri, websocket_kwargs, websocket_timeout)
+                    WebSocketProvider(
+                        host_uri, websocket_kwargs, request_timeout=websocket_timeout
+                    )
                 )
             elif host_uri.startswith("http"):
                 self._providers.append(HTTPProvider(host_uri, request_kwargs, session))
@@ -68,7 +71,7 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
                     _check_extradata_length(response["result"]["extraData"])
                 except ExtraDataLengthError:
                     logger.debug({"msg": "PoA blockchain cleanup response."})
-                    response["result"] = geth_poa_cleanup(response["result"])
+                    response["result"] = extradata_to_poa_cleanup(response["result"])
 
 
 class MultiProvider(BaseMultiProvider):
