@@ -25,7 +25,6 @@ from web3_multi_provider import FallbackProvider
 w3 = Web3(MultiProvider([  # RPC endpoints list
     'http://127.0.0.1:8000/',
     'https://mainnet.infura.io/v3/...',
-    'wss://mainnet.infura.io/ws/v3/...',
 ]))
 
 # or
@@ -33,7 +32,6 @@ w3 = Web3(MultiProvider([  # RPC endpoints list
 w3 = Web3(FallbackProvider([  # RPC endpoints list
     'http://127.0.0.1:8000/',
     'https://mainnet.infura.io/v3/...',
-    'wss://mainnet.infura.io/ws/v3/...',
 ]))
 
 last_block = w3.eth.get_block('latest')
@@ -41,8 +39,8 @@ last_block = w3.eth.get_block('latest')
 
 ### `MultiProvider`
 
-This provider tracks currently used endpoint internally and switch to the next one on error or fails if no more
-endpoints to switch to.
+This provider keeps track of the current endpoint and switches to the next one if an error occurs. 
+It fails if no endpoints are available.
 
 ### `FallbackProvider`
 
