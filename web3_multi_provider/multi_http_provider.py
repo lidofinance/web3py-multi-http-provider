@@ -1,14 +1,16 @@
 import logging
 from abc import ABC
-from typing import Any, List, Optional, Union
+from typing import Any
 
 from eth_typing import URI
-from web3 import HTTPProvider, WebsocketProvider
+from web3 import HTTPProvider
+from web3._utils.empty import Empty, empty
 from web3._utils.rpc_abi import RPC
 from web3.exceptions import ExtraDataLengthError
-from web3.middleware.geth_poa import geth_poa_cleanup
+from web3.middleware.proof_of_authority import extradata_to_poa_cleanup
 from web3.middleware.validation import _check_extradata_length
 from web3.providers import JSONBaseProvider
+from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
 logger = logging.getLogger(__name__)
@@ -19,39 +21,45 @@ class NoActiveProviderError(Exception):
 
 
 class ProtocolNotSupported(Exception):
-    """Supported protocols: http, https, ws, wss"""
+    """Supported protocols: http, https"""
 
 
 class BaseMultiProvider(JSONBaseProvider, ABC):
     """Base provider for providers with multiple endpoints"""
 
-    _providers: List[Union[HTTPProvider, WebsocketProvider]] = []
+    _providers: list[HTTPProvider] = []
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
-        endpoint_urls: List[Union[URI, str]],
-        request_kwargs: Optional[Any] = None,
-        session: Optional[Any] = None,
-        websocket_kwargs: Optional[Any] = None,
-        websocket_timeout: Optional[Any] = None,
+        endpoint_urls: list[URI | str],
+        request_kwargs: Any | None = None,
+        session: Any | None = None,
+        exception_retry_configuration: (
+            ExceptionRetryConfiguration | Empty | None
+        ) = empty,
+        **kwargs: Any,
     ):
-        logger.info({"msg": f"Initialize {self.__class__.__name__}"})
+        logger.debug({"msg": f"Initialize {self.__class__.__name__}"})
         self._hosts_uri = endpoint_urls
         self._providers = []
 
         if endpoint_urls:
             self.endpoint_uri = endpoint_urls[0]
 
-        for host_uri in endpoint_urls:
-            if host_uri.startswith("ws"):
-                self._providers.append(
-                    WebsocketProvider(host_uri, websocket_kwargs, websocket_timeout)
-                )
-            elif host_uri.startswith("http"):
-                self._providers.append(HTTPProvider(host_uri, request_kwargs, session))
-            else:
-                protocol = host_uri.split("://")[0]
+        for endpoint_uri in endpoint_urls:
+            if not endpoint_uri.startswith("http"):
+                protocol = endpoint_uri.split("://")[0]
                 raise ProtocolNotSupported(f'Protocol "{protocol}" is not supported.')
+
+            self._providers.append(
+                HTTPProvider(
+                    endpoint_uri=endpoint_uri,
+                    request_kwargs=request_kwargs,
+                    session=session,
+                    exception_retry_configuration=exception_retry_configuration,
+                    **kwargs,
+                )
+            )
 
         super().__init__()
 
@@ -68,7 +76,7 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
                     _check_extradata_length(response["result"]["extraData"])
                 except ExtraDataLengthError:
                     logger.debug({"msg": "PoA blockchain cleanup response."})
-                    response["result"] = geth_poa_cleanup(response["result"])
+                    response["result"] = extradata_to_poa_cleanup(response["result"])
 
 
 class MultiProvider(BaseMultiProvider):
@@ -77,48 +85,42 @@ class MultiProvider(BaseMultiProvider):
     """
 
     _current_provider_index: int = 0
-    _last_working_provider_index: int = 0
 
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
-        provider = self._providers[self._current_provider_index]
+        providers_count = len(self._providers)
 
-        try:
-            response = provider.make_request(method, params)
-        except Exception as error:  # pylint: disable=W0703
-            logger.debug(
-                {
-                    "msg": "Provider not responding.",
-                    "error": str(error),
-                }
-            )
+        for _ in range(providers_count):
+            active_provider = self._providers[self._current_provider_index]
 
-            self._current_provider_index = (self._current_provider_index + 1) % len(
-                self._hosts_uri
-            )
+            try:
+                response = active_provider.make_request(method, params)
+            except Exception as error:  # pylint: disable=broad-except
+                self._current_provider_index = (
+                    self._current_provider_index + 1
+                ) % providers_count
+                logger.warning(
+                    {
+                        "msg": "Provider not responding.",
+                        "error": str(error).replace(
+                            str(active_provider.endpoint_uri), "****"
+                        ),
+                    }
+                )
+            else:
+                self._sanitize_poa_response(method, response)
 
-            provider = self._providers[self._current_provider_index]
+                logger.debug(
+                    {
+                        "msg": "Send request using MultiProvider.",
+                        "method": method,
+                        "params": str(params),
+                    }
+                )
+                return response
 
-            self.endpoint_uri = provider.endpoint_uri
-
-            if self._last_working_provider_index == self._current_provider_index:
-                msg = "No active provider available."
-                logger.debug({"msg": msg})
-                raise NoActiveProviderError(msg) from error
-
-            return self.make_request(method, params)
-
-        else:
-            self._sanitize_poa_response(method, response)
-
-            logger.debug(
-                {
-                    "msg": "Send request using MultiProvider.",
-                    "method": method,
-                    "params": str(params),
-                }
-            )
-            self._last_working_provider_index = self._current_provider_index
-            return response
+        msg = "No active provider available."
+        logger.debug({"msg": msg})
+        raise NoActiveProviderError(msg)
 
 
 class FallbackProvider(BaseMultiProvider):
@@ -129,10 +131,10 @@ class FallbackProvider(BaseMultiProvider):
             try:
                 response = provider.make_request(method, params)
             except Exception as error:  # pylint: disable=broad-except
-                logger.debug(
+                logger.warning(
                     {
                         "msg": "Provider not responding.",
-                        "error": str(error),
+                        "error": str(error).replace(str(provider.endpoint_uri), "****"),
                     }
                 )
             else:
@@ -146,6 +148,7 @@ class FallbackProvider(BaseMultiProvider):
                     }
                 )
                 return response
+
         msg = "No active provider available."
         logger.debug({"msg": msg})
         raise NoActiveProviderError(msg)
