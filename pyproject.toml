@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "web3-multi-provider"
-version = "1.0.0"
+version = "2.0.0"
 description = "Web3py provider that makes it easy to switch between different blockchain nodes to make sure application will be be online if main blockchain node will be unavailable."
 authors = ["Raman <raman.s@lido.fi>"]
 license = "MIT License"
