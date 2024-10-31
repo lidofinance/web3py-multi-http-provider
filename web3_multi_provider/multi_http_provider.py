@@ -5,23 +5,14 @@ from typing import Any
 from eth_typing import URI
 from web3 import HTTPProvider
 from web3._utils.empty import Empty, empty
-from web3._utils.rpc_abi import RPC
-from web3.exceptions import ExtraDataLengthError
-from web3.middleware.proof_of_authority import extradata_to_poa_cleanup
-from web3.middleware.validation import _check_extradata_length
 from web3.providers import JSONBaseProvider
 from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
+from web3_multi_provider.poa import sanitize_poa_response
+from web3_multi_provider.exceptions import NoActiveProviderError, ProtocolNotSupported
+
 logger = logging.getLogger(__name__)
-
-
-class NoActiveProviderError(Exception):
-    """Base exception if all providers are offline"""
-
-
-class ProtocolNotSupported(Exception):
-    """Supported protocols: http, https"""
 
 
 class BaseMultiProvider(JSONBaseProvider, ABC):
@@ -63,21 +54,6 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
 
         super().__init__()
 
-    @staticmethod
-    def _sanitize_poa_response(method: RPCEndpoint, response: RPCResponse) -> None:
-        if method in (RPC.eth_getBlockByHash, RPC.eth_getBlockByNumber):
-            if (
-                "result" in response
-                and isinstance(response["result"], dict)
-                and "extraData" in response["result"]
-                and "proofOfAuthorityData" not in response["result"]
-            ):
-                try:
-                    _check_extradata_length(response["result"]["extraData"])
-                except ExtraDataLengthError:
-                    logger.debug({"msg": "PoA blockchain cleanup response."})
-                    response["result"] = extradata_to_poa_cleanup(response["result"])
-
 
 class MultiProvider(BaseMultiProvider):
     """
@@ -107,7 +83,7 @@ class MultiProvider(BaseMultiProvider):
                     }
                 )
             else:
-                self._sanitize_poa_response(method, response)
+                sanitize_poa_response(method, response)
 
                 logger.debug(
                     {
@@ -138,7 +114,7 @@ class FallbackProvider(BaseMultiProvider):
                     }
                 )
             else:
-                self._sanitize_poa_response(method, response)
+                sanitize_poa_response(method, response)
 
                 logger.debug(
                     {
