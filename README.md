@@ -39,12 +39,19 @@ last_block = w3.eth.get_block('latest')
 
 ### `MultiProvider`
 
-This provider keeps track of the current endpoint and switches to the next one if an error occurs. 
+This provider keeps track of the current endpoint and switches to the next one if an error occurs.
 It fails if no endpoints are available.
 
 ### `FallbackProvider`
 
 This provider sends requests to the all endpoints in the sequence until response received or endpoints list exhausted.
+
+### `AsyncMultiProvider` and `AsyncFallbackProvider`
+
+These providers are async versions of `MultiProvider` and `FallbackProvider` respectively. They may
+be used with instances of `AsyncWeb3`.
+
+```py
 
 ## For developers
 
