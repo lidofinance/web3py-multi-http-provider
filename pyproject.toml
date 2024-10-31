@@ -8,6 +8,10 @@ readme = "README.md"
 include = [
     "LICENSE",
 ]
+packages = [
+  {include = "web3_multi_provider"},
+  {include = "web3_multi_provider/py.typed"},
+]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<4"
