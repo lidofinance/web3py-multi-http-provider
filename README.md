@@ -52,6 +52,15 @@ These providers are async versions of `MultiProvider` and `FallbackProvider` res
 be used with instances of `AsyncWeb3`.
 
 ```py
+from web3 import AsyncWeb3
+from web3_multi_provider import AsyncMultiProvider
+from web3_multi_provider import AsyncFallbackProvider
+
+w3 = AsyncWeb3(AsyncMultiProvider([  # RPC endpoints list
+    'http://127.0.0.1:8000/',
+    'https://mainnet.infura.io/v3/...',
+]))
+```
 
 ## For developers
 
