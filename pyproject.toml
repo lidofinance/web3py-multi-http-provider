@@ -8,10 +8,15 @@ readme = "README.md"
 include = [
     "LICENSE",
 ]
+packages = [
+  {include = "web3_multi_provider"},
+  {include = "web3_multi_provider/py.typed"},
+]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<4"
 web3 = ">=7,<8"
+pytest-asyncio = "^0.24.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -25,3 +30,6 @@ pytest-mock = "^3.14.0"
 
 [tool.isort]
 profile = "black"
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
