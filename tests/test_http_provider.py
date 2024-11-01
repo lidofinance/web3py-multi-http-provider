@@ -38,7 +38,8 @@ class HttpProviderTestCase(TestCase):
             [
                 "http://127.0.0.1:9001",
                 "http://127.0.0.1:9002",
-            ]
+            ],
+            exception_retry_configuration=None,
         )
 
         w3 = Web3(provider)
@@ -55,7 +56,8 @@ class HttpProviderTestCase(TestCase):
             [
                 "http://127.0.0.1:9001",
                 "http://127.0.0.1:9000",
-            ]
+            ],
+            exception_retry_configuration=None,
         )
 
         w3 = Web3(provider)
