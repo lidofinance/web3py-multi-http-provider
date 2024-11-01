@@ -5,13 +5,13 @@ from unittest.mock import Mock, patch
 import pytest
 from web3 import Web3
 
+from tests.mocked_requests import mocked_request_get, mocked_request_poa
 from web3_multi_provider import MultiProvider
 from web3_multi_provider.multi_http_provider import (
     FallbackProvider,
     NoActiveProviderError,
     ProtocolNotSupported,
 )
-from tests.mocked_requests import mocked_request_get, mocked_request_poa
 
 
 class HttpProviderTestCase(TestCase):

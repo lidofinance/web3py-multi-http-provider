@@ -9,8 +9,8 @@ from web3.providers import JSONBaseProvider
 from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
-from web3_multi_provider.poa import sanitize_poa_response
 from web3_multi_provider.exceptions import NoActiveProviderError, ProtocolNotSupported
+from web3_multi_provider.poa import sanitize_poa_response
 
 logger = logging.getLogger(__name__)
 

@@ -4,16 +4,18 @@ from unittest.mock import Mock, patch
 import pytest
 from web3 import AsyncWeb3
 
+from tests.mocked_requests import mocked_async_request_get, mocked_async_request_poa
 from web3_multi_provider import (
-    AsyncMultiProvider,
     AsyncFallbackProvider,
+    AsyncMultiProvider,
     NoActiveProviderError,
     ProtocolNotSupported,
 )
-from tests.mocked_requests import mocked_async_request_get, mocked_async_request_poa
 
 
 class TestHttpProvider:
+    _caplog = None
+
     @pytest.fixture(autouse=True)
     def __inject_fixtures(self, caplog):
         self._caplog = caplog
@@ -66,22 +68,22 @@ class TestHttpProvider:
             await w3.eth.get_block("latest")
 
         assert self._caplog.records[2].msg == {
-                "msg": "Provider not responding.",
-                "error": "Mocked connection error.",
-            }
+            "msg": "Provider not responding.",
+            "error": "Mocked connection error.",
+        }
 
         assert self._caplog.records[5].msg == {
-                "msg": "Send request using AsyncMultiProvider.",
-                "method": "eth_getBlockByNumber",
-                "params": "('latest', False)",
-            }
+            "msg": "Send request using AsyncMultiProvider.",
+            "method": "eth_getBlockByNumber",
+            "params": "('latest', False)",
+        }
 
         # Make sure second request will be directory to second provider and will ignore second one
         assert self._caplog.records[9].msg == {
-                "msg": "Send request using AsyncMultiProvider.",
-                "method": "eth_getBlockByNumber",
-                "params": "('latest', False)",
-            }
+            "msg": "Send request using AsyncMultiProvider.",
+            "method": "eth_getBlockByNumber",
+            "params": "('latest', False)",
+        }
 
     def test_protocols_support(self):
         AsyncMultiProvider(["http://127.0.0.1:9001"])
@@ -109,7 +111,9 @@ class TestHttpProvider:
         with self._caplog.at_level(logging.DEBUG):
             block = await w3.eth.get_block("latest")
 
-        assert {"msg": "PoA blockchain cleanup response."} in [log.msg for log in self._caplog.records]
+        assert {"msg": "PoA blockchain cleanup response."} in [
+            log.msg for log in self._caplog.records
+        ]
         assert block.get("proofOfAuthorityData") is not None
 
     @patch(
@@ -125,7 +129,9 @@ class TestHttpProvider:
         with self._caplog.at_level(logging.DEBUG):
             block = await w3.eth.get_block("latest")
 
-        assert {"msg": "PoA blockchain cleanup response."} not in [log.msg for log in self._caplog.records]
+        assert {"msg": "PoA blockchain cleanup response."} not in [
+            log.msg for log in self._caplog.records
+        ]
         assert block.get("proofOfAuthorityData") is None
 
 

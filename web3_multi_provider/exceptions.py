@@ -4,5 +4,3 @@ class NoActiveProviderError(Exception):
 
 class ProtocolNotSupported(Exception):
     """Supported protocols: http, https"""
-
-

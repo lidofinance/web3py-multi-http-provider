@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 import logging
 from abc import ABC
 from typing import Any
@@ -9,11 +10,10 @@ from web3.providers.async_base import AsyncJSONBaseProvider
 from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
-from web3_multi_provider.poa import sanitize_poa_response
 from web3_multi_provider.exceptions import NoActiveProviderError, ProtocolNotSupported
+from web3_multi_provider.poa import sanitize_poa_response
 
 logger = logging.getLogger(__name__)
-
 
 
 class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
