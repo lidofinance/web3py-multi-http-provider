@@ -30,3 +30,6 @@ pytest-mock = "^3.14.0"
 
 [tool.isort]
 profile = "black"
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"

@@ -86,7 +86,7 @@ class AsyncMultiProvider(AsyncBaseMultiProvider):
 
                 logger.debug(
                     {
-                        "msg": "Send request using MultiProvider.",
+                        "msg": "Send request using AsyncMultiProvider.",
                         "method": method,
                         "params": str(params),
                     }
