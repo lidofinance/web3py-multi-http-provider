@@ -21,20 +21,28 @@ class TestHttpProvider:
         self._caplog = caplog
 
     @patch(
-        "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
-        side_effect=mocked_async_request_get,
+        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        return_value=1
     )
-    @pytest.mark.asyncio
-    async def test_one_provider_works(self, make_post_request):
-        await self.one_provider_works(AsyncMultiProvider)
-        await self.one_provider_works(AsyncFallbackProvider)
-
     @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
         side_effect=mocked_async_request_get,
     )
     @pytest.mark.asyncio
-    async def test_nothing_works(self, make_post_request):
+    async def test_one_provider_works(self, make_post_request, mock_fetch_chain_id):
+        await self.one_provider_works(AsyncMultiProvider)
+        await self.one_provider_works(AsyncFallbackProvider)
+
+    @patch(
+        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
+        "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
+        side_effect=mocked_async_request_get,
+    )
+    @pytest.mark.asyncio
+    async def test_nothing_works(self, make_post_request, mock_fetch_chain_id):
         self._caplog.set_level(logging.WARNING)
 
         provider = AsyncMultiProvider(
@@ -99,11 +107,15 @@ class TestHttpProvider:
             AsyncMultiProvider(["wss://127.0.0.1:9001"])
 
     @patch(
+        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
         side_effect=mocked_async_request_poa,
     )
     @pytest.mark.asyncio
-    async def test_poa_blockchain(self, make_post_request):
+    async def test_poa_blockchain(self, make_post_request, mock_fetch_chain_id):
         provider = AsyncMultiProvider(["http://127.0.0.1:9000"])
 
         w3 = AsyncWeb3(provider)
@@ -117,11 +129,15 @@ class TestHttpProvider:
         assert block.get("proofOfAuthorityData") is not None
 
     @patch(
+        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
         side_effect=mocked_async_request_get,
     )
     @pytest.mark.asyncio
-    async def test_pos_blockchain(self, make_post_request):
+    async def test_pos_blockchain(self, make_post_request, mock_fetch_chain_id):
         provider = AsyncMultiProvider(["http://127.0.0.1:9000"])
 
         w3 = AsyncWeb3(provider)
@@ -144,11 +160,15 @@ class TestAsyncFallbackProvider:
             await w3.eth.get_block("latest")
 
     @patch(
+        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
         side_effect=mocked_async_request_get,
     )
     @pytest.mark.asyncio
-    async def test_one_endpoint(self, make_post_request: Mock):
+    async def test_one_endpoint(self, make_post_request: Mock, mock_fetch_chain_id):
         w3 = AsyncWeb3(
             AsyncFallbackProvider(
                 [
@@ -161,11 +181,15 @@ class TestAsyncFallbackProvider:
         make_post_request.assert_called_once()
 
     @patch(
+        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
         side_effect=mocked_async_request_get,
     )
     @pytest.mark.asyncio
-    async def test_first_working(self, make_post_request: Mock):
+    async def test_first_working(self, make_post_request: Mock, mock_fetch_chain_id):
         w3 = AsyncWeb3(
             AsyncFallbackProvider(
                 [
@@ -180,11 +204,15 @@ class TestAsyncFallbackProvider:
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
 
     @patch(
+        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
         side_effect=mocked_async_request_get,
     )
     @pytest.mark.asyncio
-    async def test_all_endpoints_fail(self, make_post_request: Mock):
+    async def test_all_endpoints_fail(self, make_post_request: Mock, mock_fetch_chain_id):
         w3 = AsyncWeb3(
             AsyncFallbackProvider(
                 [
@@ -203,11 +231,15 @@ class TestAsyncFallbackProvider:
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9003"
 
     @patch(
+        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
         side_effect=mocked_async_request_get,
     )
     @pytest.mark.asyncio
-    async def test_one_endpoint_works(self, make_post_request: Mock):
+    async def test_one_endpoint_works(self, make_post_request: Mock, mock_fetch_chain_id):
         w3 = AsyncWeb3(
             AsyncFallbackProvider(
                 [
@@ -223,11 +255,15 @@ class TestAsyncFallbackProvider:
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
 
     @patch(
+        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
         side_effect=mocked_async_request_get,
     )
     @pytest.mark.asyncio
-    async def test_starts_from_the_first(self, make_post_request: Mock):
+    async def test_starts_from_the_first(self, make_post_request: Mock, mock_fetch_chain_id):
         w3 = AsyncWeb3(
             AsyncFallbackProvider(
                 [

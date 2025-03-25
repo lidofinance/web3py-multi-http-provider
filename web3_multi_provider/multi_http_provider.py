@@ -9,8 +9,9 @@ from web3.providers import JSONBaseProvider
 from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
+from http_provider_proxy import HTTPProviderProxy, ProviderInitialization
 from web3_multi_provider.exceptions import NoActiveProviderError, ProtocolNotSupported
-from web3_multi_provider.poa import sanitize_poa_response
+from web3_multi_provider.util import sanitize_poa_response
 
 logger = logging.getLogger(__name__)
 
@@ -42,16 +43,21 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
                 protocol = endpoint_uri.split("://")[0]
                 raise ProtocolNotSupported(f'Protocol "{protocol}" is not supported.')
 
-            self._providers.append(
-                HTTPProvider(
+            try:
+                provider = HTTPProviderProxy(
                     endpoint_uri=endpoint_uri,
                     request_kwargs=request_kwargs,
                     session=session,
                     exception_retry_configuration=exception_retry_configuration,
                     **kwargs,
                 )
-            )
-
+                self._providers.append(provider)
+            except ProviderInitialization as e:
+                logger.error({
+                    "msg": "Failed to initialize a provider",
+                    "error": str(e).replace(str(endpoint_uri), "****"),
+                })
+                continue
         super().__init__()
 
 
@@ -72,8 +78,8 @@ class MultiProvider(BaseMultiProvider):
                 response = active_provider.make_request(method, params)
             except Exception as error:  # pylint: disable=broad-except
                 self._current_provider_index = (
-                    self._current_provider_index + 1
-                ) % providers_count
+                                                   self._current_provider_index + 1
+                                               ) % providers_count
                 logger.warning(
                     {
                         "msg": "Provider not responding.",

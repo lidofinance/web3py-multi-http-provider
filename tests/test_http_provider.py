@@ -20,18 +20,26 @@ class HttpProviderTestCase(TestCase):
         self._caplog = caplog
 
     @patch(
-        "web3._utils.http_session_manager.HTTPSessionManager.make_post_request",
-        side_effect=mocked_request_get,
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1
     )
-    def test_one_provider_works(self, make_post_request):
-        self.one_provider_works(MultiProvider)
-        self.one_provider_works(FallbackProvider)
-
     @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.make_post_request",
         side_effect=mocked_request_get,
     )
-    def test_nothing_works(self, make_post_request):
+    def test_one_provider_works(self, make_post_request, mock_fetch_chain_id):
+        self.one_provider_works(MultiProvider)
+        self.one_provider_works(FallbackProvider)
+
+    @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
+        "web3._utils.http_session_manager.HTTPSessionManager.make_post_request",
+        side_effect=mocked_request_get,
+    )
+    def test_nothing_works(self, make_post_request, mock_fetch_chain_id):
         self._caplog.set_level(logging.WARNING)
 
         provider = MultiProvider(
@@ -105,10 +113,14 @@ class HttpProviderTestCase(TestCase):
             MultiProvider(["wss://127.0.0.1:9001"])
 
     @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.make_post_request",
         side_effect=mocked_request_poa,
     )
-    def test_poa_blockchain(self, make_post_request):
+    def test_poa_blockchain(self, make_post_request, mock_fetch_chain_id):
         provider = MultiProvider(["http://127.0.0.1:9000"])
 
         w3 = Web3(provider)
@@ -124,10 +136,14 @@ class HttpProviderTestCase(TestCase):
         self.assertIsNotNone(block.get("proofOfAuthorityData", None))
 
     @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.make_post_request",
         side_effect=mocked_request_get,
     )
-    def test_pos_blockchain(self, make_post_request):
+    def test_pos_blockchain(self, make_post_request, mock_fetch_chain_id):
         provider = MultiProvider(["http://127.0.0.1:9000"])
 
         w3 = Web3(provider)
@@ -151,10 +167,14 @@ class TestFallbackProvider:
             w3.eth.get_block("latest")
 
     @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.make_post_request",
         side_effect=mocked_request_get,
     )
-    def test_one_endpoint(self, make_post_request: Mock):
+    def test_one_endpoint(self, make_post_request, mock_fetch_chain_id):
         w3 = Web3(
             FallbackProvider(
                 [
@@ -167,10 +187,14 @@ class TestFallbackProvider:
         make_post_request.assert_called_once()
 
     @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.make_post_request",
         side_effect=mocked_request_get,
     )
-    def test_first_working(self, make_post_request: Mock):
+    def test_first_working(self, make_post_request, mock_fetch_chain_id):
         w3 = Web3(
             FallbackProvider(
                 [
@@ -185,10 +209,14 @@ class TestFallbackProvider:
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
 
     @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.make_post_request",
         side_effect=mocked_request_get,
     )
-    def test_all_endpoints_fail(self, make_post_request: Mock):
+    def test_all_endpoints_fail(self, make_post_request, mock_fetch_chain_id):
         w3 = Web3(
             FallbackProvider(
                 [
@@ -207,10 +235,14 @@ class TestFallbackProvider:
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9003"
 
     @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.make_post_request",
         side_effect=mocked_request_get,
     )
-    def test_one_endpoint_works(self, make_post_request: Mock):
+    def test_one_endpoint_works(self, make_post_request, mock_fetch_chain_id):
         w3 = Web3(
             FallbackProvider(
                 [
@@ -226,10 +258,14 @@ class TestFallbackProvider:
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
 
     @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @patch(
         "web3._utils.http_session_manager.HTTPSessionManager.make_post_request",
         side_effect=mocked_request_get,
     )
-    def test_starts_from_the_first(self, make_post_request: Mock):
+    def test_starts_from_the_first(self, make_post_request, mock_fetch_chain_id):
         w3 = Web3(
             FallbackProvider(
                 [
