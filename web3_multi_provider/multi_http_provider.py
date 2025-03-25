@@ -9,7 +9,7 @@ from web3.providers import JSONBaseProvider
 from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
-from http_provider_proxy import HTTPProviderProxy, ProviderInitialization
+from web3_multi_provider.http_provider_proxy import HTTPProviderProxy, ProviderInitialization
 from web3_multi_provider.exceptions import NoActiveProviderError, ProtocolNotSupported
 from web3_multi_provider.util import sanitize_poa_response
 

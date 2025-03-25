@@ -5,7 +5,7 @@ from aiohttp import ClientResponse
 from eth_typing import URI
 from web3._utils.http_session_manager import HTTPSessionManager
 
-from metrics import RPC_SERVICE_RESPONSE
+from web3_multi_provider.metrics import RPC_SERVICE_RESPONSE
 
 
 class HTTPSessionManagerProxy(HTTPSessionManager):

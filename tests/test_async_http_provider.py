@@ -21,7 +21,7 @@ class TestHttpProvider:
         self._caplog = caplog
 
     @patch(
-        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
         return_value=1
     )
     @patch(
@@ -34,7 +34,7 @@ class TestHttpProvider:
         await self.one_provider_works(AsyncFallbackProvider)
 
     @patch(
-        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
         return_value=1
     )
     @patch(
@@ -107,7 +107,7 @@ class TestHttpProvider:
             AsyncMultiProvider(["wss://127.0.0.1:9001"])
 
     @patch(
-        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
         return_value=1
     )
     @patch(
@@ -129,7 +129,7 @@ class TestHttpProvider:
         assert block.get("proofOfAuthorityData") is not None
 
     @patch(
-        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
         return_value=1
     )
     @patch(
@@ -160,7 +160,7 @@ class TestAsyncFallbackProvider:
             await w3.eth.get_block("latest")
 
     @patch(
-        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
         return_value=1
     )
     @patch(
@@ -181,7 +181,7 @@ class TestAsyncFallbackProvider:
         make_post_request.assert_called_once()
 
     @patch(
-        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
         return_value=1
     )
     @patch(
@@ -204,7 +204,7 @@ class TestAsyncFallbackProvider:
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
 
     @patch(
-        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
         return_value=1
     )
     @patch(
@@ -231,7 +231,7 @@ class TestAsyncFallbackProvider:
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9003"
 
     @patch(
-        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
         return_value=1
     )
     @patch(
@@ -255,7 +255,7 @@ class TestAsyncFallbackProvider:
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
 
     @patch(
-        "async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
         return_value=1
     )
     @patch(

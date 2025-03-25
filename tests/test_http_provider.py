@@ -1,6 +1,6 @@
 import logging
 from unittest import TestCase
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 from web3 import Web3

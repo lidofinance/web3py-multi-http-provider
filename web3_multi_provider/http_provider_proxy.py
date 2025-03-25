@@ -7,10 +7,10 @@ from web3._utils.empty import empty
 from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
-from http_session_manager_proxy import HTTPSessionManagerProxy
-from metrics import RPC_SERVICE_REQUESTS, CHAIN_ID_TO_NAME, RPC_SERVICE_REQUEST_METHODS, RPC_SERVICE_REQUEST_PAYLOAD_BYTES, \
+from web3_multi_provider.http_session_manager_proxy import HTTPSessionManagerProxy
+from web3_multi_provider.metrics import RPC_SERVICE_REQUESTS, CHAIN_ID_TO_NAME, RPC_SERVICE_REQUEST_METHODS, RPC_SERVICE_REQUEST_PAYLOAD_BYTES, \
     RPC_SERVICE_RESPONSES_TOTAL_BYTES
-from util import normalize_provider
+from web3_multi_provider.util import normalize_provider
 
 
 class ProviderInitialization(Exception):
