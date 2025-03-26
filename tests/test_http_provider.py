@@ -5,6 +5,8 @@ from unittest.mock import patch
 import pytest
 from web3 import Web3
 
+from web3_multi_provider.metrics import RPC_SERVICE_REQUESTS, RPC_SERVICE_REQUEST_METHODS, RPC_SERVICE_REQUEST_PAYLOAD_BYTES, \
+    RPC_SERVICE_RESPONSES_TOTAL_BYTES
 from tests.mocked_requests import mocked_request_get, mocked_request_poa
 from web3_multi_provider import MultiProvider
 from web3_multi_provider.multi_http_provider import (
@@ -56,6 +58,15 @@ class HttpProviderTestCase(TestCase):
             with self.assertRaises(NoActiveProviderError):
                 w3.eth.get_block("latest")
 
+        request_samples = next(iter(RPC_SERVICE_REQUESTS.collect())).samples
+        method_samples = next(iter(RPC_SERVICE_REQUEST_METHODS.collect())).samples
+        payload_samples = next(iter(RPC_SERVICE_REQUEST_PAYLOAD_BYTES.collect())).samples
+        responses_samples = next(iter(RPC_SERVICE_RESPONSES_TOTAL_BYTES.collect())).samples
+        assert len(request_samples) == 4
+        assert len(method_samples) == 4
+        assert len(responses_samples) == 0
+        assert len(payload_samples) > 0
+
         # Make sure there is no inf recursion
         self.assertEqual(len(self._caplog.records), 6)
 
@@ -74,6 +85,15 @@ class HttpProviderTestCase(TestCase):
             w3.eth.get_block("latest")
             w3.eth.get_block("latest")
 
+        request_samples = next(iter(RPC_SERVICE_REQUESTS.collect())).samples
+        method_samples = next(iter(RPC_SERVICE_REQUEST_METHODS.collect())).samples
+        payload_samples = next(iter(RPC_SERVICE_REQUEST_PAYLOAD_BYTES.collect())).samples
+        responses_samples = next(iter(RPC_SERVICE_RESPONSES_TOTAL_BYTES.collect())).samples
+
+        assert len(request_samples) == 4
+        assert len(method_samples) == 4
+        assert len(responses_samples) > 0
+        assert len(payload_samples) > 0
         self.assertDictEqual(
             {
                 "msg": "Provider not responding.",
@@ -128,6 +148,15 @@ class HttpProviderTestCase(TestCase):
         with self._caplog.at_level(logging.DEBUG):
             block = w3.eth.get_block("latest")
 
+        request_samples = next(iter(RPC_SERVICE_REQUESTS.collect())).samples
+        method_samples = next(iter(RPC_SERVICE_REQUEST_METHODS.collect())).samples
+        payload_samples = next(iter(RPC_SERVICE_REQUEST_PAYLOAD_BYTES.collect())).samples
+        responses_samples = next(iter(RPC_SERVICE_RESPONSES_TOTAL_BYTES.collect())).samples
+        assert len(request_samples) == 2
+        assert len(method_samples) == 2
+        assert len(responses_samples) > 0
+        assert len(payload_samples) > 0
+
         self.assertIn(
             {"msg": "PoA blockchain cleanup response."},
             [log.msg for log in self._caplog.records],
@@ -150,6 +179,15 @@ class HttpProviderTestCase(TestCase):
 
         with self._caplog.at_level(logging.DEBUG):
             block = w3.eth.get_block("latest")
+
+        request_samples = next(iter(RPC_SERVICE_REQUESTS.collect())).samples
+        method_samples = next(iter(RPC_SERVICE_REQUEST_METHODS.collect())).samples
+        payload_samples = next(iter(RPC_SERVICE_REQUEST_PAYLOAD_BYTES.collect())).samples
+        responses_samples = next(iter(RPC_SERVICE_RESPONSES_TOTAL_BYTES.collect())).samples
+        assert len(request_samples) == 2
+        assert len(method_samples) == 2
+        assert len(responses_samples) > 0
+        assert len(payload_samples) > 0
 
         self.assertIsNone(block.get("proofOfAuthorityData", None))
 
@@ -184,6 +222,14 @@ class TestFallbackProvider:
             )
         )
         w3.eth.get_block("latest")
+        request_samples = next(iter(RPC_SERVICE_REQUESTS.collect())).samples
+        method_samples = next(iter(RPC_SERVICE_REQUEST_METHODS.collect())).samples
+        payload_samples = next(iter(RPC_SERVICE_REQUEST_PAYLOAD_BYTES.collect())).samples
+        responses_samples = next(iter(RPC_SERVICE_RESPONSES_TOTAL_BYTES.collect())).samples
+        assert len(request_samples) == 2
+        assert len(method_samples) == 2
+        assert len(responses_samples) > 0
+        assert len(payload_samples) > 0
         make_post_request.assert_called_once()
 
     @patch(
@@ -205,6 +251,14 @@ class TestFallbackProvider:
             )
         )
         w3.eth.get_block("latest")
+        request_samples = next(iter(RPC_SERVICE_REQUESTS.collect())).samples
+        method_samples = next(iter(RPC_SERVICE_REQUEST_METHODS.collect())).samples
+        payload_samples = next(iter(RPC_SERVICE_REQUEST_PAYLOAD_BYTES.collect())).samples
+        responses_samples = next(iter(RPC_SERVICE_RESPONSES_TOTAL_BYTES.collect())).samples
+        assert len(request_samples) == 2
+        assert len(method_samples) == 2
+        assert len(responses_samples) > 0
+        assert len(payload_samples) > 0
         make_post_request.assert_called_once()
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
 
@@ -231,6 +285,14 @@ class TestFallbackProvider:
         with pytest.raises(NoActiveProviderError):
             w3.eth.get_block("latest")
 
+        request_samples = next(iter(RPC_SERVICE_REQUESTS.collect())).samples
+        method_samples = next(iter(RPC_SERVICE_REQUEST_METHODS.collect())).samples
+        payload_samples = next(iter(RPC_SERVICE_REQUEST_PAYLOAD_BYTES.collect())).samples
+        responses_samples = next(iter(RPC_SERVICE_RESPONSES_TOTAL_BYTES.collect())).samples
+        assert len(request_samples) == 6
+        assert len(method_samples) == 6
+        assert len(responses_samples) == 0
+        assert len(payload_samples) > 0
         assert make_post_request.call_count == 3
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9003"
 
@@ -254,6 +316,14 @@ class TestFallbackProvider:
         )
 
         w3.eth.get_block("latest")
+        request_samples = next(iter(RPC_SERVICE_REQUESTS.collect())).samples
+        method_samples = next(iter(RPC_SERVICE_REQUEST_METHODS.collect())).samples
+        payload_samples = next(iter(RPC_SERVICE_REQUEST_PAYLOAD_BYTES.collect())).samples
+        responses_samples = next(iter(RPC_SERVICE_RESPONSES_TOTAL_BYTES.collect())).samples
+        assert len(request_samples) == 4
+        assert len(method_samples) == 4
+        assert len(responses_samples) > 0
+        assert len(payload_samples) > 0
         assert make_post_request.call_count == 2
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
 
@@ -278,6 +348,15 @@ class TestFallbackProvider:
 
         w3.eth.get_block("latest")
         w3.eth.get_block("latest")
+
+        request_samples = next(iter(RPC_SERVICE_REQUESTS.collect())).samples
+        method_samples = next(iter(RPC_SERVICE_REQUEST_METHODS.collect())).samples
+        payload_samples = next(iter(RPC_SERVICE_REQUEST_PAYLOAD_BYTES.collect())).samples
+        responses_samples = next(iter(RPC_SERVICE_RESPONSES_TOTAL_BYTES.collect())).samples
+        assert len(request_samples) == 4
+        assert len(method_samples) == 4
+        assert len(responses_samples) > 0
+        assert len(payload_samples) > 0
 
         assert make_post_request.call_count == 4
         assert make_post_request.call_args_list[-2].args[0] == "http://127.0.0.1:9001"

@@ -1,0 +1,14 @@
+import pytest
+
+from web3_multi_provider.metrics import RPC_SERVICE_REQUESTS, RPC_SERVICE_REQUEST_METHODS, RPC_SERVICE_RESPONSE, \
+    RPC_SERVICE_REQUEST_PAYLOAD_BYTES, RPC_SERVICE_RESPONSES_TOTAL_BYTES
+
+
+@pytest.fixture(autouse=True)
+def clear_metrics():
+    yield
+    RPC_SERVICE_REQUESTS.clear()
+    RPC_SERVICE_REQUEST_METHODS.clear()
+    RPC_SERVICE_RESPONSE.clear()
+    RPC_SERVICE_REQUEST_PAYLOAD_BYTES.clear()
+    RPC_SERVICE_RESPONSES_TOTAL_BYTES.clear()

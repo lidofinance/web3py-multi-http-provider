@@ -48,8 +48,8 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
                 status = 'success'
             return result
         finally:
-            RPC_SERVICE_REQUESTS.labels(self._network, self._chain_id, self._uri, status)
-            RPC_SERVICE_REQUEST_METHODS.labels(self._network, self._chain_id, self._uri, method, status)
+            RPC_SERVICE_REQUESTS.labels(self._network, self._chain_id, self._uri, status).inc()
+            RPC_SERVICE_REQUEST_METHODS.labels(self._network, self._chain_id, self._uri, method, status).inc()
 
     @override
     def encode_rpc_request(self, method: RPCEndpoint, params: Any) -> bytes:
