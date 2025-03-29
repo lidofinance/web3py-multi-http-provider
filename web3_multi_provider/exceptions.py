@@ -4,3 +4,7 @@ class NoActiveProviderError(Exception):
 
 class ProtocolNotSupported(Exception):
     """Supported protocols: http, https"""
+
+
+class ProviderInitialization(Exception):
+    """Error during provider init"""

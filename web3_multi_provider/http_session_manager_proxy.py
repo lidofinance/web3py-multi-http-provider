@@ -1,4 +1,5 @@
-from typing import Any
+import time
+from typing import Any, Callable, Awaitable
 
 import requests
 from aiohttp import ClientResponse
@@ -15,34 +16,28 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         self._uri = uri
         self._network = network
 
-    def get_response_from_get_request(
-        self, endpoint_uri: URI, *args: Any, **kwargs: Any
-    ) -> requests.Response:
-        with RPC_SERVICE_RESPONSE.time() as t:
-            response = super().get_response_from_get_request(endpoint_uri, args, kwargs)
-            t.labels(self._network, self._chain_id, self._uri, str(response.status_code))
-            return response
+    def _timed_call(self, func: Callable[..., requests.Response], *args: Any, **kwargs: Any) -> requests.Response:
+        start_time = time.perf_counter()
+        response = func(*args, **kwargs)
+        duration = time.perf_counter() - start_time
+        RPC_SERVICE_RESPONSE.labels(self._network, self._chain_id, self._uri, str(response.status_code)).observe(duration)
+        return response
 
-    def get_response_from_post_request(
-        self, endpoint_uri: URI, *args: Any, **kwargs: Any
-    ) -> requests.Response:
-        with RPC_SERVICE_RESPONSE.time() as t:
-            response = super().get_response_from_post_request(endpoint_uri, args, kwargs)
-            t.labels(self._network, self._chain_id, self._uri, str(response.status_code))
-            return response
+    async def _timed_async_call(self, func: Callable[..., Awaitable[ClientResponse]], *args: Any, **kwargs: Any) -> ClientResponse:
+        start_time = time.perf_counter()
+        response = await func(*args, **kwargs)
+        duration = time.perf_counter() - start_time
+        RPC_SERVICE_RESPONSE.labels(self._network, self._chain_id, self._uri, str(response.status)).observe(duration)
+        return response
 
-    async def async_get_response_from_get_request(
-        self, endpoint_uri: URI, *args: Any, **kwargs: Any
-    ) -> ClientResponse:
-        with RPC_SERVICE_RESPONSE.time() as t:
-            response = await super().async_get_response_from_get_request(endpoint_uri, args, kwargs)
-            t.labels(self._network, self._chain_id, self._uri, str(response.status))
-            return response
+    def get_response_from_get_request(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> requests.Response:
+        return self._timed_call(super().get_response_from_get_request, endpoint_uri, args, kwargs)
 
-    async def async_get_response_from_post_request(
-        self, endpoint_uri: URI, *args: Any, **kwargs: Any
-    ) -> ClientResponse:
-        with RPC_SERVICE_RESPONSE.time() as t:
-            response = await super().async_get_response_from_post_request(endpoint_uri, args, kwargs)
-            t.labels(self._network, self._chain_id, self._uri, str(response.status))
-            return response
+    def get_response_from_post_request(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> requests.Response:
+        return self._timed_call(super().get_response_from_post_request, endpoint_uri, args, kwargs)
+
+    async def async_get_response_from_get_request(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> ClientResponse:
+        return await self._timed_async_call(super().async_get_response_from_get_request, endpoint_uri, args, kwargs)
+
+    async def async_get_response_from_post_request(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> ClientResponse:
+        return await self._timed_async_call(super().async_get_response_from_post_request, endpoint_uri, args, kwargs)

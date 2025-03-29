@@ -77,9 +77,7 @@ class MultiProvider(BaseMultiProvider):
             try:
                 response = active_provider.make_request(method, params)
             except Exception as error:  # pylint: disable=broad-except
-                self._current_provider_index = (
-                                                   self._current_provider_index + 1
-                                               ) % providers_count
+                self._current_provider_index = (self._current_provider_index + 1) % providers_count
                 logger.warning(
                     {
                         "msg": "Provider not responding.",

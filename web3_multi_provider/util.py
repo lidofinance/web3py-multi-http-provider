@@ -27,6 +27,10 @@ def sanitize_poa_response(method: RPCEndpoint, response: RPCResponse) -> None:
 
 
 def normalize_provider(uri: str) -> str:
+    """
+    If uri is an IP address returns as is.
+    If uri is a dns address returns two highest domains.
+    """
     uri = re.sub(r'^https?://', '', uri.lower())
 
     ip_match = re.match(r'^(\d{1,3}\.){3}\d{1,3}(:\d+)?$', uri)
