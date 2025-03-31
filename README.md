@@ -14,6 +14,10 @@ or
 ```bash
 $ poetry add web3-multi-provider
 ```
+or with metrics:
+```bash
+$ poetry add web3-multi-provider[metrics]
+```
 
 ## Usage
 
@@ -54,13 +58,17 @@ be used with instances of `AsyncWeb3`.
 ```py
 from web3 import AsyncWeb3
 from web3_multi_provider import AsyncMultiProvider
-from web3_multi_provider import AsyncFallbackProvider
 
 w3 = AsyncWeb3(AsyncMultiProvider([  # RPC endpoints list
     'http://127.0.0.1:8000/',
     'https://mainnet.infura.io/v3/...',
 ]))
 ```
+
+### Metrics
+
+Library has in-built prometheus metrics, to enable them run `metrics.init_metrics()`.
+Set `PROMETHEUS_PREFIX` env variable for metrics prefixes.
 
 ## For developers
 
