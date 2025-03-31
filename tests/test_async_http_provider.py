@@ -83,7 +83,7 @@ class TestHttpProvider:
             await w3.eth.get_block("latest")
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count >0
+        assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
         # self.assertGreater(self._metrics['response'].return_value.observe.call_count, 0)
         assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0

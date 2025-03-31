@@ -6,8 +6,6 @@ from aiohttp import ClientResponse
 from eth_typing import URI
 from web3._utils.http_session_manager import HTTPSessionManager
 
-from web3_multi_provider.metrics import RPC_SERVICE_RESPONSE
-
 
 class HTTPSessionManagerProxy(HTTPSessionManager):
     def __init__(self, chain_id: int | str, uri: str, network: str, cache_size: int = 100, session_pool_max_workers: int = 5):
@@ -17,6 +15,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         self._network = network
 
     def _timed_call(self, func: Callable[..., requests.Response], *args: Any, **kwargs: Any) -> requests.Response:
+        from web3_multi_provider.metrics import RPC_SERVICE_RESPONSE
         start_time = time.perf_counter()
         response = func(*args, **kwargs)
         duration = time.perf_counter() - start_time
@@ -24,6 +23,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         return response
 
     async def _timed_async_call(self, func: Callable[..., Awaitable[ClientResponse]], *args: Any, **kwargs: Any) -> ClientResponse:
+        from web3_multi_provider.metrics import RPC_SERVICE_RESPONSE
         start_time = time.perf_counter()
         response = await func(*args, **kwargs)
         duration = time.perf_counter() - start_time

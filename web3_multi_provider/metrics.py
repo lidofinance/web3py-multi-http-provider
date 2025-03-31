@@ -39,15 +39,14 @@ def _init_prometheus_metrics(registry=None):
         }
 
 
-# Predeclare metrics to satisfy linters / IDEs
-RPC_SERVICE_REQUESTS = None
-RPC_SERVICE_REQUEST_METHODS = None
-RPC_SERVICE_RESPONSE = None
-RPC_SERVICE_REQUEST_PAYLOAD_BYTES = None
-RPC_SERVICE_RESPONSES_TOTAL_BYTES = None
+RPC_SERVICE_REQUESTS = DummyMetric()
+RPC_SERVICE_REQUEST_METHODS = DummyMetric()
+RPC_SERVICE_RESPONSE = DummyMetric()
+RPC_SERVICE_REQUEST_PAYLOAD_BYTES = DummyMetric()
+RPC_SERVICE_RESPONSES_TOTAL_BYTES = DummyMetric()
 
 
-def init_all_metrics(registry=None):
+def init_metrics(registry=None):
     _prom = _init_prometheus_metrics(registry)
     global RPC_SERVICE_REQUESTS, RPC_SERVICE_REQUEST_METHODS, RPC_SERVICE_RESPONSE
     global RPC_SERVICE_REQUEST_PAYLOAD_BYTES, RPC_SERVICE_RESPONSES_TOTAL_BYTES
@@ -89,6 +88,3 @@ def init_all_metrics(registry=None):
         ["network", "chainId", "provider"],
         namespace=PROMETHEUS_PREFIX,
     )
-
-
-init_all_metrics()

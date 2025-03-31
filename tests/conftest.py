@@ -3,6 +3,8 @@ from unittest.mock import patch, MagicMock, Mock
 
 import pytest
 
+from web3_multi_provider.metrics import init_metrics
+
 
 @dataclasses.dataclass
 class MockMetrics:
@@ -13,7 +15,13 @@ class MockMetrics:
     rpc_service_responses_total_bytes: Mock
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="session", autouse=True)
+def initialize_metrics():
+    init_metrics()
+    yield
+
+
+@pytest.fixture
 def mock_metrics() -> MockMetrics:
     with (
         patch("web3_multi_provider.metrics.RPC_SERVICE_REQUESTS.labels", return_value=MagicMock()) as req,
