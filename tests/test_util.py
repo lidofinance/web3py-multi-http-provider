@@ -1,6 +1,6 @@
 import pytest
 
-from util import normalize_provider
+from web3_multi_provider.util import normalize_provider
 
 
 @pytest.mark.parametrize("input_uri,expected", [

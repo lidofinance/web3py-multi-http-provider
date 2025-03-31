@@ -4,7 +4,7 @@ import pytest
 from web3 import AsyncHTTPProvider
 from web3.types import RPCEndpoint
 
-from async_http_provider_proxy import AsyncHTTPProviderProxy
+from web3_multi_provider.async_http_provider_proxy import AsyncHTTPProviderProxy
 
 pytestmark = pytest.mark.asyncio
 

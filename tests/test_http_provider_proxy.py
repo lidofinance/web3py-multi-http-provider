@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 from web3.types import RPCEndpoint
 
-from exceptions import ProviderInitialization
+from web3_multi_provider.exceptions import ProviderInitialization
 from web3_multi_provider.http_provider_proxy import HTTPProviderProxy
 
 
