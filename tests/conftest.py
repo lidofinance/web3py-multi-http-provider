@@ -1,14 +1,23 @@
+from unittest.mock import patch, MagicMock
+
 import pytest
 
-from web3_multi_provider.metrics import RPC_SERVICE_REQUESTS, RPC_SERVICE_REQUEST_METHODS, RPC_SERVICE_RESPONSE, \
-    RPC_SERVICE_REQUEST_PAYLOAD_BYTES, RPC_SERVICE_RESPONSES_TOTAL_BYTES
+from test_util import MockMetrics
 
 
 @pytest.fixture(autouse=True)
-def clear_metrics():
-    yield
-    RPC_SERVICE_REQUESTS.clear()
-    RPC_SERVICE_REQUEST_METHODS.clear()
-    RPC_SERVICE_RESPONSE.clear()
-    RPC_SERVICE_REQUEST_PAYLOAD_BYTES.clear()
-    RPC_SERVICE_RESPONSES_TOTAL_BYTES.clear()
+def mock_metrics() -> MockMetrics:
+    with (
+        patch("web3_multi_provider.metrics.RPC_SERVICE_REQUESTS.labels", return_value=MagicMock()) as req,
+        patch("web3_multi_provider.metrics.RPC_SERVICE_REQUEST_METHODS.labels", return_value=MagicMock()) as methods,
+        patch("web3_multi_provider.metrics.RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels", return_value=MagicMock()) as payload,
+        patch("web3_multi_provider.metrics.RPC_SERVICE_RESPONSES_TOTAL_BYTES.labels", return_value=MagicMock()) as resp_bytes,
+        patch("web3_multi_provider.metrics.RPC_SERVICE_RESPONSE.labels", return_value=MagicMock()) as response,
+    ):
+        yield MockMetrics(
+            rpc_service_requests=req,
+            rpc_service_request_methods=methods,
+            rpc_service_request_payload_bytes=payload,
+            rpc_service_responses_total_bytes=resp_bytes,
+            rpc_service_response=response,
+        )

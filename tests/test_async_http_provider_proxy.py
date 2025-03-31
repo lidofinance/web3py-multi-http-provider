@@ -5,6 +5,7 @@ from web3 import AsyncHTTPProvider
 from web3.types import RPCEndpoint
 
 from async_http_provider_proxy import AsyncHTTPProviderProxy
+from test_util import MockMetrics
 
 pytestmark = pytest.mark.asyncio
 
@@ -14,23 +15,7 @@ def proxy():
     return AsyncHTTPProviderProxy(endpoint_uri="https://mainnet.infura.io/v3/test")
 
 
-@pytest.fixture
-def mock_metrics():
-    with (
-        patch("web3_multi_provider.metrics.RPC_SERVICE_REQUESTS.labels", return_value=MagicMock()) as req,
-        patch("web3_multi_provider.metrics.RPC_SERVICE_REQUEST_METHODS.labels", return_value=MagicMock()) as methods,
-        patch("web3_multi_provider.metrics.RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels", return_value=MagicMock()) as payload,
-        patch("web3_multi_provider.metrics.RPC_SERVICE_RESPONSES_TOTAL_BYTES.labels", return_value=MagicMock()) as resp_bytes,
-    ):
-        yield {
-            "requests": req,
-            "methods": methods,
-            "payload": payload,
-            "responses": resp_bytes,
-        }
-
-
-async def test_make_request_success_initializes_chain_info(proxy, mock_metrics):
+async def test_make_request_success_initializes_chain_info(proxy, mock_metrics: MockMetrics):
     with (
         patch.object(proxy, "_fetch_chain_id", return_value=1),
         patch.object(AsyncHTTPProvider, "make_request", new_callable=AsyncMock) as super_request,
@@ -41,11 +26,11 @@ async def test_make_request_success_initializes_chain_info(proxy, mock_metrics):
         assert result["result"] == "0x123"
         assert proxy._chain_id == 1
         assert proxy._network == "ethereum"
-        mock_metrics["requests"].return_value.inc.assert_called_once()
-        mock_metrics["methods"].return_value.inc.assert_called_once()
+        mock_metrics.rpc_service_requests.return_value.inc.assert_called_once()
+        mock_metrics.rpc_service_request_methods.return_value.inc.assert_called_once()
 
 
-async def test_make_request_handles_error_response(proxy, mock_metrics):
+async def test_make_request_handles_error_response(proxy, mock_metrics:  MockMetrics):
     with (
         patch.object(proxy, "_fetch_chain_id", return_value=1),
         patch.object(AsyncHTTPProvider, "make_request", new_callable=AsyncMock) as super_request,
@@ -54,8 +39,8 @@ async def test_make_request_handles_error_response(proxy, mock_metrics):
         result = await proxy.make_request(RPCEndpoint("eth_call"), [])
 
         assert "error" in result
-        mock_metrics["requests"].return_value.inc.assert_called_once()
-        mock_metrics["methods"].return_value.inc.assert_called_once()
+        mock_metrics.rpc_service_requests.return_value.inc.assert_called_once()
+        mock_metrics.rpc_service_request_methods.return_value.inc.assert_called_once()
 
 
 async def test_fetch_chain_id_success(proxy):
@@ -79,7 +64,7 @@ def test_encode_rpc_request_records_payload(proxy, mock_metrics):
 
     payload = proxy.encode_rpc_request(RPCEndpoint("eth_getBalance"), ["0xabc", "latest"])
     assert isinstance(payload, bytes)
-    mock_metrics["payload"].return_value.observe.assert_called_once()
+    mock_metrics.rpc_service_request_payload_bytes.return_value.observe.assert_called_once()
 
 
 def test_decode_rpc_response_records_size(proxy, mock_metrics):
@@ -91,4 +76,4 @@ def test_decode_rpc_response_records_size(proxy, mock_metrics):
     result = proxy.decode_rpc_response(raw)
 
     assert result["result"] == "0x1"
-    mock_metrics["responses"].return_value.inc.assert_called_once_with(len(raw))
+    mock_metrics.rpc_service_responses_total_bytes.return_value.inc.assert_called_once_with(len(raw))

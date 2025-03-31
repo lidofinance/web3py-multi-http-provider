@@ -1,26 +1,10 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 from web3.types import RPCEndpoint
 
 from exceptions import ProviderInitialization
 from web3_multi_provider.http_provider_proxy import HTTPProviderProxy
-
-
-@pytest.fixture
-def mock_metrics():
-    with (
-        patch("web3_multi_provider.metrics.RPC_SERVICE_REQUESTS.labels", return_value=MagicMock()) as req,
-        patch("web3_multi_provider.metrics.RPC_SERVICE_REQUEST_METHODS.labels", return_value=MagicMock()) as methods,
-        patch("web3_multi_provider.metrics.RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels", return_value=MagicMock()) as payload,
-        patch("web3_multi_provider.metrics.RPC_SERVICE_RESPONSES_TOTAL_BYTES.labels", return_value=MagicMock()) as responses,
-    ):
-        yield {
-            "requests": req,
-            "methods": methods,
-            "payload": payload,
-            "responses": responses
-        }
 
 
 @patch("web3_multi_provider.http_provider_proxy.HTTPProvider.make_request")
@@ -50,8 +34,8 @@ def test_make_request_success_sets_status_success(mock_make_request, mock_metric
     result = provider.make_request(RPCEndpoint("eth_blockNumber"), [])
 
     assert result["result"] == "0x123"
-    mock_metrics["requests"].return_value.inc.assert_called_once()
-    mock_metrics["methods"].return_value.inc.assert_called_once()
+    mock_metrics.rpc_service_requests.return_value.inc.assert_called_once()
+    mock_metrics.rpc_service_request_methods.return_value.inc.assert_called_once()
 
 
 @patch("web3_multi_provider.http_provider_proxy.HTTPProvider.make_request")
@@ -64,8 +48,8 @@ def test_make_request_failure_sets_status_fail(mock_make_request, mock_metrics):
     result = provider.make_request(RPCEndpoint("eth_call"), [])
 
     assert "error" in result
-    mock_metrics["requests"].return_value.inc.assert_called_once()
-    mock_metrics["methods"].return_value.inc.assert_called_once()
+    mock_metrics.rpc_service_requests.return_value.inc.assert_called_once()
+    mock_metrics.rpc_service_request_methods.return_value.inc.assert_called_once()
 
 
 @patch("web3_multi_provider.http_provider_proxy.HTTPProvider.make_request")
@@ -78,7 +62,7 @@ def test_encode_rpc_request_records_payload(mock_encode, mock_make_request, mock
     result = provider.encode_rpc_request(RPCEndpoint("eth_call"), [])
 
     assert isinstance(result, bytes)
-    mock_metrics["payload"].return_value.observe.assert_called_once_with(len(result))
+    mock_metrics.rpc_service_request_payload_bytes.return_value.observe.assert_called_once_with(len(result))
 
 
 @patch("web3_multi_provider.http_provider_proxy.HTTPProvider.make_request")
@@ -91,4 +75,4 @@ def test_decode_rpc_response_records_bytes(mock_decode, mock_make_request, mock_
     raw = b'{"jsonrpc":"2.0","result":"0xabc"}'
     result = provider.decode_rpc_response(raw)
     assert result["result"] == "0xabc"
-    mock_metrics["responses"].return_value.inc.assert_called_once_with(len(raw))
+    mock_metrics.rpc_service_responses_total_bytes.return_value.inc.assert_called_once_with(len(raw))

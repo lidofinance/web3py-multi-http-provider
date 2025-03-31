@@ -38,6 +38,7 @@ def _init_prometheus_metrics(registry=None):
             "Histogram": lambda *args, **kw: DummyMetric(),
         }
 
+
 # Predeclare metrics to satisfy linters / IDEs
 RPC_SERVICE_REQUESTS = None
 RPC_SERVICE_REQUEST_METHODS = None
