@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 from web3 import AsyncWeb3
 
-from tests.mocked_requests import mocked_async_request_get, mocked_async_request_poa
+from tests.mocked_requests import mocked_async_request_get, mocked_async_request_poa, mock_async_response
 from web3_multi_provider import (
     AsyncFallbackProvider,
     AsyncMultiProvider,
@@ -26,8 +26,8 @@ class TestHttpProvider:
         return_value=1
     )
     @patch(
-        "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
-        side_effect=mocked_async_request_get,
+        "web3._utils.http_session_manager.HTTPSessionManager.async_get_response_from_post_request",
+        side_effect=mock_async_response,
     )
     @pytest.mark.asyncio
     async def test_one_provider_works(self, make_post_request, mock_fetch_chain_id):
@@ -39,8 +39,8 @@ class TestHttpProvider:
         return_value=1
     )
     @patch(
-        "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
-        side_effect=mocked_async_request_get,
+        "web3._utils.http_session_manager.HTTPSessionManager.async_get_response_from_post_request",
+        side_effect=mock_async_response,
     )
     @pytest.mark.asyncio
     async def test_nothing_works(self, make_post_request, mock_fetch_chain_id):
@@ -61,7 +61,7 @@ class TestHttpProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        # self.assertGreater(self._metrics['response'].return_value.observe.call_count, 0)
+        assert self._metrics.rpc_service_response.return_value.observe.call_count == 0
         assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count == 0
         assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
 
@@ -84,7 +84,7 @@ class TestHttpProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        # self.assertGreater(self._metrics['response'].return_value.observe.call_count, 0)
+        assert self._metrics.rpc_service_response.return_value.observe.call_count > 0
         assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
 
@@ -138,7 +138,6 @@ class TestHttpProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        # self.assertGreater(self._metrics['response'].return_value.observe.call_count, 0)
         assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
 
@@ -152,8 +151,8 @@ class TestHttpProvider:
         return_value=1
     )
     @patch(
-        "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
-        side_effect=mocked_async_request_get,
+        "web3._utils.http_session_manager.HTTPSessionManager.async_get_response_from_post_request",
+        side_effect=mock_async_response,
     )
     @pytest.mark.asyncio
     async def test_pos_blockchain(self, make_post_request, mock_fetch_chain_id):
@@ -166,7 +165,7 @@ class TestHttpProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        # self.assertGreater(self._metrics['response'].return_value.observe.call_count, 0)
+        assert self._metrics.rpc_service_response.return_value.observe.call_count > 0
         assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
 
@@ -195,8 +194,8 @@ class TestAsyncFallbackProvider:
         return_value=1
     )
     @patch(
-        "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
-        side_effect=mocked_async_request_get,
+        "web3._utils.http_session_manager.HTTPSessionManager.async_get_response_from_post_request",
+        side_effect=mock_async_response,
     )
     @pytest.mark.asyncio
     async def test_one_endpoint(self, make_post_request: Mock, mock_fetch_chain_id):
@@ -211,7 +210,7 @@ class TestAsyncFallbackProvider:
         await w3.eth.get_block("latest")
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        # self.assertGreater(self._metrics['response'].return_value.observe.call_count, 0)
+        assert self._metrics.rpc_service_response.return_value.observe.call_count > 0
         assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
         make_post_request.assert_called_once()
@@ -221,8 +220,8 @@ class TestAsyncFallbackProvider:
         return_value=1
     )
     @patch(
-        "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
-        side_effect=mocked_async_request_get,
+        "web3._utils.http_session_manager.HTTPSessionManager.async_get_response_from_post_request",
+        side_effect=mock_async_response,
     )
     @pytest.mark.asyncio
     async def test_first_working(self, make_post_request: Mock, mock_fetch_chain_id):
@@ -244,8 +243,8 @@ class TestAsyncFallbackProvider:
         return_value=1
     )
     @patch(
-        "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
-        side_effect=mocked_async_request_get,
+        "web3._utils.http_session_manager.HTTPSessionManager.async_get_response_from_post_request",
+        side_effect=mock_async_response,
     )
     @pytest.mark.asyncio
     async def test_all_endpoints_fail(self, make_post_request: Mock, mock_fetch_chain_id):
@@ -271,8 +270,8 @@ class TestAsyncFallbackProvider:
         return_value=1
     )
     @patch(
-        "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
-        side_effect=mocked_async_request_get,
+        "web3._utils.http_session_manager.HTTPSessionManager.async_get_response_from_post_request",
+        side_effect=mock_async_response,
     )
     @pytest.mark.asyncio
     async def test_one_endpoint_works(self, make_post_request: Mock, mock_fetch_chain_id):
@@ -295,8 +294,8 @@ class TestAsyncFallbackProvider:
         return_value=1
     )
     @patch(
-        "web3._utils.http_session_manager.HTTPSessionManager.async_make_post_request",
-        side_effect=mocked_async_request_get,
+        "web3._utils.http_session_manager.HTTPSessionManager.async_get_response_from_post_request",
+        side_effect=mock_async_response,
     )
     @pytest.mark.asyncio
     async def test_starts_from_the_first(self, make_post_request: Mock, mock_fetch_chain_id):

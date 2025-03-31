@@ -1,5 +1,5 @@
 # pylint: disable=line-too-long
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
 
 import requests
 
@@ -72,4 +72,9 @@ async def mock_async_response(
     *args,
     **kwargs,
 ):
-    return mock_response(endpoint_uri, data, *args, **kwargs)
+    if "http://127.0.0.1:9000" not in endpoint_uri:
+        raise ConnectionError("Mocked connection error.")
+    resp = AsyncMock()
+    resp.status = 200
+    resp.read = AsyncMock(return_value=_MOCK_REQUEST_GET_RESULT)
+    return resp
