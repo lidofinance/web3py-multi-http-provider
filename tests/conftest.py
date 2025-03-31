@@ -1,8 +1,16 @@
-from unittest.mock import patch, MagicMock
+import dataclasses
+from unittest.mock import patch, MagicMock, Mock
 
 import pytest
 
-from test_util import MockMetrics
+
+@dataclasses.dataclass
+class MockMetrics:
+    rpc_service_requests: Mock
+    rpc_service_request_methods: Mock
+    rpc_service_response: Mock
+    rpc_service_request_payload_bytes: Mock
+    rpc_service_responses_total_bytes: Mock
 
 
 @pytest.fixture(autouse=True)

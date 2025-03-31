@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 from web3 import Web3
 
-from tests.mocked_requests import mocked_request_get, mocked_request_poa, mock_response
+from tests.mocked_requests import mocked_request_poa, mock_response
 from web3_multi_provider import MultiProvider
 from web3_multi_provider.multi_http_provider import (
     FallbackProvider,

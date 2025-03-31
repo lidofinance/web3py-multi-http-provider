@@ -1,11 +1,10 @@
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
+import pytest
 from web3 import AsyncHTTPProvider
 from web3.types import RPCEndpoint
 
 from async_http_provider_proxy import AsyncHTTPProviderProxy
-from test_util import MockMetrics
 
 pytestmark = pytest.mark.asyncio
 
@@ -15,7 +14,7 @@ def proxy():
     return AsyncHTTPProviderProxy(endpoint_uri="https://mainnet.infura.io/v3/test")
 
 
-async def test_make_request_success_initializes_chain_info(proxy, mock_metrics: MockMetrics):
+async def test_make_request_success_initializes_chain_info(proxy, mock_metrics):
     with (
         patch.object(proxy, "_fetch_chain_id", return_value=1),
         patch.object(AsyncHTTPProvider, "make_request", new_callable=AsyncMock) as super_request,
@@ -30,7 +29,7 @@ async def test_make_request_success_initializes_chain_info(proxy, mock_metrics: 
         mock_metrics.rpc_service_request_methods.return_value.inc.assert_called_once()
 
 
-async def test_make_request_handles_error_response(proxy, mock_metrics:  MockMetrics):
+async def test_make_request_handles_error_response(proxy, mock_metrics):
     with (
         patch.object(proxy, "_fetch_chain_id", return_value=1),
         patch.object(AsyncHTTPProvider, "make_request", new_callable=AsyncMock) as super_request,
