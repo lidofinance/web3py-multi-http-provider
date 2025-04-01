@@ -53,9 +53,6 @@ class HTTPProviderProxy(HTTPProvider):
             if 'error' not in result:
                 status = 'success'
             return result
-        except Exception as e:
-            print(e)
-            raise e
         finally:
             self._record_request_metrics(method, status)
 
