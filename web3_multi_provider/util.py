@@ -41,4 +41,4 @@ def normalize_provider(uri: str) -> str:
     parts = hostname.split('.')
     if len(parts) >= 2:
         return '.'.join(parts[-2:])  # e.g., alchemy.com
-    raise ValueError('Unhandled hostname format: hostname must be either an IP address or a valid provider address')
+    raise ValueError(f'Unhandled hostname format: {{ uri }}. Hostname must be either an IP address or a valid provider address.')
