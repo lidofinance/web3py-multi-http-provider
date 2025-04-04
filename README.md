@@ -68,7 +68,6 @@ w3 = AsyncWeb3(AsyncMultiProvider([  # RPC endpoints list
 ### Metrics
 
 Library has in-built prometheus metrics, to enable them run `metrics.init_metrics()`.
-Set `PROMETHEUS_PREFIX` env variable for metrics prefixes.
 
 ## For developers
 
