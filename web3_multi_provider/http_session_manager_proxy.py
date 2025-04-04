@@ -1,4 +1,5 @@
 import time
+import web3_multi_provider.metrics as metrics
 from typing import Any, Callable, Awaitable
 
 import requests
@@ -15,19 +16,17 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         self._network = network
 
     def _timed_call(self, func: Callable[..., requests.Response], *args: Any, **kwargs: Any) -> requests.Response:
-        from web3_multi_provider.metrics import RPC_SERVICE_RESPONSE
         start_time = time.perf_counter()
         response = func(*args, **kwargs)
         duration = time.perf_counter() - start_time
-        RPC_SERVICE_RESPONSE.labels(self._network, self._chain_id, self._uri, str(response.status_code)).observe(duration)
+        metrics._RPC_SERVICE_RESPONSE.labels(self._network, self._chain_id, self._uri, str(response.status_code)).observe(duration)
         return response
 
     async def _timed_async_call(self, func: Callable[..., Awaitable[ClientResponse]], *args: Any, **kwargs: Any) -> ClientResponse:
-        from web3_multi_provider.metrics import RPC_SERVICE_RESPONSE
         start_time = time.perf_counter()
         response = await func(*args, **kwargs)
         duration = time.perf_counter() - start_time
-        RPC_SERVICE_RESPONSE.labels(self._network, self._chain_id, self._uri, str(response.status)).observe(duration)
+        metrics._RPC_SERVICE_RESPONSE.labels(self._network, self._chain_id, self._uri, str(response.status)).observe(duration)
         return response
 
     def get_response_from_get_request(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> requests.Response:

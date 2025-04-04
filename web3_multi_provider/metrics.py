@@ -1,8 +1,8 @@
-import os
+import dataclasses
 
-PROMETHEUS_PREFIX = os.getenv("PROMETHEUS_PREFIX", "")
+_CHAIN_ID_TO_NAME = {}
 
-CHAIN_ID_TO_NAME = {
+_DEFAULT_CHAIN_ID_TO_NAME = {
     1: "ethereum",
     10: "optimism",
     137: "polygon",
@@ -15,7 +15,13 @@ CHAIN_ID_TO_NAME = {
 }
 
 
-class DummyMetric:
+@dataclasses.dataclass
+class MetricsConfig:
+    namespace: str
+    chain_id_to_name: dict[int, str] = dataclasses.field(default_factory=lambda: _DEFAULT_CHAIN_ID_TO_NAME.copy())
+
+
+class _DummyMetric:
     def labels(self, *args, **kwargs):
         return self
 
@@ -34,57 +40,60 @@ def _init_prometheus_metrics(registry=None):
         }
     except ImportError:
         return {
-            "Counter": lambda *args, **kw: DummyMetric(),
-            "Histogram": lambda *args, **kw: DummyMetric(),
+            "Counter": lambda *args, **kw: _DummyMetric(),
+            "Histogram": lambda *args, **kw: _DummyMetric(),
         }
 
 
-RPC_SERVICE_REQUESTS = DummyMetric()
-RPC_SERVICE_REQUEST_METHODS = DummyMetric()
-RPC_SERVICE_RESPONSE = DummyMetric()
-RPC_SERVICE_REQUEST_PAYLOAD_BYTES = DummyMetric()
-RPC_SERVICE_RESPONSES_TOTAL_BYTES = DummyMetric()
+_RPC_SERVICE_REQUESTS = _DummyMetric()
+_RPC_SERVICE_REQUEST_METHODS = _DummyMetric()
+_RPC_SERVICE_RESPONSE = _DummyMetric()
+_RPC_SERVICE_REQUEST_PAYLOAD_BYTES = _DummyMetric()
+_RPC_SERVICE_RESPONSES_TOTAL_BYTES = _DummyMetric()
 
 
-def init_metrics(registry=None):
+def init_metrics(metrics_config: MetricsConfig, registry=None):
     _prom = _init_prometheus_metrics(registry)
-    global RPC_SERVICE_REQUESTS, RPC_SERVICE_REQUEST_METHODS, RPC_SERVICE_RESPONSE
-    global RPC_SERVICE_REQUEST_PAYLOAD_BYTES, RPC_SERVICE_RESPONSES_TOTAL_BYTES
+    global _RPC_SERVICE_REQUESTS, _RPC_SERVICE_REQUEST_METHODS, _RPC_SERVICE_RESPONSE
+    global _RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _RPC_SERVICE_RESPONSES_TOTAL_BYTES
+    global _CHAIN_ID_TO_NAME
 
     counter = _prom["Counter"]
     histogram = _prom["Histogram"]
 
-    RPC_SERVICE_REQUESTS = counter(
+    _CHAIN_ID_TO_NAME = metrics_config.chain_id_to_name
+
+    _RPC_SERVICE_REQUESTS = counter(
         "rpc_service_request",
         "Tracks the cumulative number of RPC requests.",
         ["network", "chainId", "provider", "status"],
-        namespace=PROMETHEUS_PREFIX,
+        namespace=metrics_config.namespace,
     )
 
-    RPC_SERVICE_REQUEST_METHODS = counter(
+    _RPC_SERVICE_REQUEST_METHODS = counter(
         "rpc_service_request_methods",
         "Tracks the number of RPC requests made, grouped by method.",
         ["network", "chainId", "provider", "method", "status"],
-        namespace=PROMETHEUS_PREFIX,
+        namespace=metrics_config.namespace,
     )
 
-    RPC_SERVICE_RESPONSE = histogram(
+    _RPC_SERVICE_RESPONSE = histogram(
         "rpc_service_response",
         "Measures the response time (in seconds) for RPC requests.",
         ["network", "chainId", "provider", "status"],
-        namespace=PROMETHEUS_PREFIX,
+        namespace=metrics_config.namespace,
     )
 
-    RPC_SERVICE_REQUEST_PAYLOAD_BYTES = histogram(
+    _RPC_SERVICE_REQUEST_PAYLOAD_BYTES = histogram(
         "rpc_service_request_payload_bytes",
         "Measures the size (in bytes) of RPC request payloads.",
         ["network", "chainId", "provider"],
-        namespace=PROMETHEUS_PREFIX,
+        namespace=metrics_config.namespace,
     )
 
-    RPC_SERVICE_RESPONSES_TOTAL_BYTES = counter(
+    _RPC_SERVICE_RESPONSES_TOTAL_BYTES = counter(
         "rpc_service_responses_total_bytes",
         "Measures the total responses bytes.",
         ["network", "chainId", "provider"],
-        namespace=PROMETHEUS_PREFIX,
+        namespace=metrics_config.namespace,
     )

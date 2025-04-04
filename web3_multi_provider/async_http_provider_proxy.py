@@ -1,3 +1,4 @@
+import web3_multi_provider.metrics as metrics
 from queue import Empty
 from typing import Optional, Union, Any, override
 
@@ -8,7 +9,6 @@ from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
 from web3_multi_provider.http_session_manager_proxy import HTTPSessionManagerProxy
-from web3_multi_provider.metrics import CHAIN_ID_TO_NAME
 from web3_multi_provider.util import normalize_provider
 
 
@@ -31,7 +31,7 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         if self._chain_id is not None:
             return
         self._chain_id = await self._fetch_chain_id()
-        self._network = CHAIN_ID_TO_NAME.get(self._chain_id, "unknown")
+        self._network = metrics._CHAIN_ID_TO_NAME.get(self._chain_id, "unknown")
         self._request_session_manager = HTTPSessionManagerProxy(
             chain_id=self._chain_id,
             uri=self._uri,
@@ -46,9 +46,8 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
             raise RuntimeError("Failed to fetch chain ID") from e
 
     def _record_request_metrics(self, method: RPCEndpoint, status: str) -> None:
-        from web3_multi_provider.metrics import RPC_SERVICE_REQUESTS, RPC_SERVICE_REQUEST_METHODS
-        RPC_SERVICE_REQUESTS.labels(self._network, self._chain_id, self._uri, status).inc()
-        RPC_SERVICE_REQUEST_METHODS.labels(self._network, self._chain_id, self._uri, method, status).inc()
+        metrics._RPC_SERVICE_REQUESTS.labels(self._network, self._chain_id, self._uri, status).inc()
+        metrics._RPC_SERVICE_REQUEST_METHODS.labels(self._network, self._chain_id, self._uri, method, status).inc()
 
     @override
     async def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
@@ -64,13 +63,11 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
 
     @override
     def encode_rpc_request(self, method: RPCEndpoint, params: Any) -> bytes:
-        from web3_multi_provider.metrics import RPC_SERVICE_REQUEST_PAYLOAD_BYTES
         payload = super().encode_rpc_request(method, params)
-        RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels(self._network, self._chain_id, self._uri).observe(len(payload))
+        metrics._RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels(self._network, self._chain_id, self._uri).observe(len(payload))
         return payload
 
     @override
     def decode_rpc_response(self, raw_response: bytes) -> RPCResponse:
-        from web3_multi_provider.metrics import RPC_SERVICE_RESPONSES_TOTAL_BYTES
-        RPC_SERVICE_RESPONSES_TOTAL_BYTES.labels(self._network, self._chain_id, self._uri).inc(len(raw_response))
+        metrics._RPC_SERVICE_RESPONSES_TOTAL_BYTES.labels(self._network, self._chain_id, self._uri).inc(len(raw_response))
         return JSONBaseProvider.decode_rpc_response(raw_response)

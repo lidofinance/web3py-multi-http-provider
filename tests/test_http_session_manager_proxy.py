@@ -12,7 +12,7 @@ def proxy():
 
 @pytest.fixture
 def mock_metric():
-    with patch.object(metrics.RPC_SERVICE_RESPONSE, "labels", return_value=MagicMock()) as mock_labels:
+    with patch.object(metrics._RPC_SERVICE_RESPONSE, "labels", return_value=MagicMock()) as mock_labels:
         yield mock_labels
 
 
