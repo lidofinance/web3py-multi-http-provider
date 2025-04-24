@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 from web3 import AsyncWeb3
 
-from tests.mocked_requests import mocked_async_request_get, mocked_async_request_poa, mock_async_response
+from tests.mocked_requests import mocked_async_request_poa, mock_async_response
 from web3_multi_provider import (
     AsyncFallbackProvider,
     AsyncMultiProvider,
@@ -61,9 +61,9 @@ class TestHttpProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_response.return_value.observe.call_count == 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count == 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count == 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count == 0
+        assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
 
         # Make sure there is no inf recursion
         assert len(self._caplog.records) == 6
@@ -84,9 +84,9 @@ class TestHttpProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_response.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count > 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
+        assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
 
         assert self._caplog.records[2].msg == {
             "msg": "Provider not responding.",
@@ -138,8 +138,9 @@ class TestHttpProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count == 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
+        assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
 
         assert {"msg": "PoA blockchain cleanup response."} in [
             log.msg for log in self._caplog.records
@@ -165,9 +166,9 @@ class TestHttpProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_response.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count > 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
+        assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
 
         assert {"msg": "PoA blockchain cleanup response."} not in [
             log.msg for log in self._caplog.records
@@ -210,9 +211,9 @@ class TestAsyncFallbackProvider:
         await w3.eth.get_block("latest")
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_response.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count > 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
+        assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
         make_post_request.assert_called_once()
 
     @patch(

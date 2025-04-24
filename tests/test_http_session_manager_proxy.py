@@ -12,7 +12,7 @@ def proxy():
 
 @pytest.fixture
 def mock_metric():
-    with patch.object(metrics._RPC_SERVICE_RESPONSE, "labels", return_value=MagicMock()) as mock_labels:
+    with patch.object(metrics._HTTP_RPC_SERVICE_REQUESTS, "labels", return_value=MagicMock()) as mock_labels:
         yield mock_labels
 
 
@@ -27,8 +27,8 @@ def test_get_response_from_get_request(proxy, mock_metric):
     ) as super_mock:
         response = HTTPSessionManagerProxy.get_response_from_get_request(proxy, "https://example.com")
         assert response == mock_response
-        mock_metric.assert_called_with("ethereum", "1", "https://node.example", "200")
-        mock_metric.return_value.observe.assert_called_once()
+        mock_metric.assert_called_with('ethereum', 'unknown', '1', 'https://node.example', 'False', '200')
+        mock_metric.return_value.inc.assert_called_once()
 
 
 def test_get_response_from_post_request(proxy, mock_metric):
@@ -42,8 +42,8 @@ def test_get_response_from_post_request(proxy, mock_metric):
     ) as super_mock:
         response = HTTPSessionManagerProxy.get_response_from_post_request(proxy, "https://example.com")
         assert response == mock_response
-        mock_metric.assert_called_with("ethereum", "1", "https://node.example", "201")
-        mock_metric.return_value.observe.assert_called_once()
+        mock_metric.assert_called_with('ethereum', 'unknown', '1', 'https://node.example', 'False', '201')
+        mock_metric.return_value.inc.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -58,8 +58,8 @@ async def test_async_get_response_from_get_request(proxy, mock_metric):
     ) as super_mock:
         response = await HTTPSessionManagerProxy.async_get_response_from_get_request(proxy, "https://example.com")
         assert response == mock_response
-        mock_metric.assert_called_with("ethereum", "1", "https://node.example", "200")
-        mock_metric.return_value.observe.assert_called_once()
+        mock_metric.assert_called_with('ethereum', 'unknown', '1', 'https://node.example', 'False', '200')
+        mock_metric.return_value.inc.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -74,5 +74,5 @@ async def test_async_get_response_from_post_request(proxy, mock_metric):
     ) as super_mock:
         response = await HTTPSessionManagerProxy.async_get_response_from_post_request(proxy, "https://example.com")
         assert response == mock_response
-        mock_metric.assert_called_with("ethereum", "1", "https://node.example", "500")
-        mock_metric.return_value.observe.assert_called_once()
+        mock_metric.assert_called_with('ethereum', 'unknown', '1', 'https://node.example', 'False', '500')
+        mock_metric.return_value.inc.assert_called_once()

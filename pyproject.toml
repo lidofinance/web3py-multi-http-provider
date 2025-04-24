@@ -35,6 +35,7 @@ pytest-mock = "^3.14.0"
 prometheus-client = "^0.21.1"
 requests = "^2.32.3"
 aiohttp = "^3.11.14"
+responses = "^0.25.7"
 
 [tool.isort]
 profile = "black"

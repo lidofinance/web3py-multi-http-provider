@@ -35,7 +35,6 @@ def test_make_request_success_sets_status_success(mock_make_request, mock_metric
 
     assert result["result"] == "0x123"
     mock_metrics.rpc_service_requests.return_value.inc.assert_called_once()
-    mock_metrics.rpc_service_request_methods.return_value.inc.assert_called_once()
 
 
 @patch("web3_multi_provider.http_provider_proxy.HTTPProvider.make_request")
@@ -49,7 +48,6 @@ def test_make_request_failure_sets_status_fail(mock_make_request, mock_metrics):
 
     assert "error" in result
     mock_metrics.rpc_service_requests.return_value.inc.assert_called_once()
-    mock_metrics.rpc_service_request_methods.return_value.inc.assert_called_once()
 
 
 @patch("web3_multi_provider.http_provider_proxy.HTTPProvider.make_request")
@@ -75,4 +73,4 @@ def test_decode_rpc_response_records_bytes(mock_decode, mock_make_request, mock_
     raw = b'{"jsonrpc":"2.0","result":"0xabc"}'
     result = provider.decode_rpc_response(raw)
     assert result["result"] == "0xabc"
-    mock_metrics.rpc_service_responses_total_bytes.return_value.inc.assert_called_once_with(len(raw))
+    mock_metrics.rpc_service_response_payload_bytes.return_value.observe.assert_called_once_with(len(raw))

@@ -72,9 +72,8 @@ class TestHttpProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_response.return_value.observe.call_count == 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count == 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.http_rpc_service_requests.return_value.observe.call_count == 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count == 0
 
         # Make sure there is no inf recursion
         assert len(self._caplog.records) == 6
@@ -96,9 +95,9 @@ class TestHttpProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_response.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count > 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
+        assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
 
         assert {"msg": "Provider not responding.", "error": "Mocked connection error."} == self._caplog.records[2].msg
         assert {"msg": "Send request using MultiProvider.", "method": "eth_getBlockByNumber", "params": "('latest', False)"} == \
@@ -125,8 +124,7 @@ class TestHttpProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
 
         assert {"msg": "PoA blockchain cleanup response."} in [log.msg for log in self._caplog.records]
         assert block.get("proofOfAuthorityData", None) is not None
@@ -149,9 +147,8 @@ class TestHttpProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_response.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count > 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
 
         assert block.get("proofOfAuthorityData", None) is None
 
@@ -191,9 +188,8 @@ class TestFallbackProvider:
         w3.eth.get_block("latest")
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_response.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count > 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
         make_post_request.assert_called_once()
 
     @patch(
@@ -217,9 +213,8 @@ class TestFallbackProvider:
         w3.eth.get_block("latest")
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_response.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count > 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
         make_post_request.assert_called_once()
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
 
@@ -248,9 +243,8 @@ class TestFallbackProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_response.return_value.observe.call_count == 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count == 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count == 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.inc.call_count == 0
         assert make_post_request.call_count == 3
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9003"
 
@@ -276,9 +270,8 @@ class TestFallbackProvider:
         w3.eth.get_block("latest")
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_response.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count > 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
         assert make_post_request.call_count == 2
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
 
@@ -306,9 +299,8 @@ class TestFallbackProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_response.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_responses_total_bytes.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_request_methods.return_value.inc.call_count > 0
+        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count > 0
+        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
 
         assert make_post_request.call_count == 4
         assert make_post_request.call_args_list[-2].args[0] == "http://127.0.0.1:9001"

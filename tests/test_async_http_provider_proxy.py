@@ -26,7 +26,6 @@ async def test_make_request_success_initializes_chain_info(proxy, mock_metrics):
         assert proxy._chain_id == 1
         assert proxy._network == "ethereum"
         mock_metrics.rpc_service_requests.return_value.inc.assert_called_once()
-        mock_metrics.rpc_service_request_methods.return_value.inc.assert_called_once()
 
 
 async def test_make_request_handles_error_response(proxy, mock_metrics):
@@ -39,7 +38,6 @@ async def test_make_request_handles_error_response(proxy, mock_metrics):
 
         assert "error" in result
         mock_metrics.rpc_service_requests.return_value.inc.assert_called_once()
-        mock_metrics.rpc_service_request_methods.return_value.inc.assert_called_once()
 
 
 async def test_fetch_chain_id_success(proxy):
@@ -75,4 +73,4 @@ def test_decode_rpc_response_records_size(proxy, mock_metrics):
     result = proxy.decode_rpc_response(raw)
 
     assert result["result"] == "0x1"
-    mock_metrics.rpc_service_responses_total_bytes.return_value.inc.assert_called_once_with(len(raw))
+    mock_metrics.rpc_service_response_payload_bytes.return_value.observe.assert_called_once_with(len(raw))
