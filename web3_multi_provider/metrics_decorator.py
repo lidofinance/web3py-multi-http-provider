@@ -9,8 +9,20 @@ from web3.types import RPCEndpoint
 
 def record_rpc_call(metric_name: str = '_RPC_SERVICE_REQUESTS'):
     """
-    Wrap RPC call methods (sync or async) to record status and error_code metrics dynamically.
+    Decorator that wraps an RPC method (sync or async) to record Prometheus metrics for request outcomes.
+
+    It tracks:
+    - Request status (success/fail)
+    - RPC error codes (if any)
+    - Increments the given Prometheus counter metric with appropriate labels
+
+    Args:
+        metric_name (str): The name of the Prometheus metric attribute to call `labels(...).inc()` on.
+
+    Returns:
+        Callable: Wrapped method that records metrics and returns the RPC result.
     """
+
 
     def decorator(fn):
         # Async wrapper
@@ -74,6 +86,18 @@ def record_rpc_call(metric_name: str = '_RPC_SERVICE_REQUESTS'):
 
 
 def observe_output_payload(metric_name: str):
+    """
+    Decorator that observes the size (in bytes) of a request payload produced by the wrapped method.
+
+    Typically used for methods that return an encoded byte string (e.g., JSON RPC requests).
+
+    Args:
+        metric_name (str): The Prometheus histogram or summary metric name to record the payload size with.
+
+    Returns:
+        Callable: Wrapped function that records the payload size in bytes.
+    """
+
     def decorator(fn):
         if inspect.iscoroutinefunction(fn):
             @functools.wraps(fn)
@@ -100,6 +124,18 @@ def observe_output_payload(metric_name: str):
 
 
 def observe_input_payload(metric_name: str):
+    """
+    Decorator that records the size of an incoming byte response before decoding.
+
+    Useful for measuring raw RPC response sizes.
+
+    Args:
+        metric_name (str): The Prometheus histogram or summary metric name to record the response size with.
+
+    Returns:
+        Callable: Wrapped function that records the size of the raw input payload.
+    """
+
     def decorator(fn):
         @functools.wraps(fn)
         def wrapper(self, raw_response: bytes, *args, **kwargs):
@@ -115,7 +151,13 @@ def observe_input_payload(metric_name: str):
 
 def observe_batch_size(metric_name: str = '_HTTP_RPC_BATCH_SIZE'):
     """
-    Wrap batch request methods (sync or async) to observe size of batch dynamically.
+    Decorator that observes the number of requests in a batch RPC call (sync or async).
+
+    Args:
+        metric_name (str): The Prometheus metric name to use for recording the batch size.
+
+    Returns:
+        Callable: Wrapped batch function that records the number of items in the batch.
     """
 
     def decorator(fn):
