@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any, Union, List
 from typing_extensions import override
 from web3.beacon import Beacon
 
-from http_session_manager_proxy import HTTPSessionManagerProxy
+from web3_multi_provider.http_session_manager_proxy import HTTPSessionManagerProxy
 from web3_multi_provider.metrics_decorator import record_rpc_call
 from util import normalize_provider
 
