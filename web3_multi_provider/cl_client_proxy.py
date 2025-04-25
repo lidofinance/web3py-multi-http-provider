@@ -1,10 +1,12 @@
+import sys
+import web3_multi_provider.metrics as metrics
 from typing import Optional, Dict, Any, Union, List
 
 from typing_extensions import override
 from web3.beacon import Beacon
 
-import web3_multi_provider.metrics as metrics
 from http_session_manager_proxy import HTTPSessionManagerProxy
+from web3_multi_provider.metrics_decorator import record_rpc_call
 from util import normalize_provider
 
 
@@ -24,35 +26,27 @@ class BeaconProxy(Beacon):
         )
 
     @override
+    @record_rpc_call('_RPC_SERVICE_REQUESTS')
     def _make_get_request(
         self, endpoint_url: str, params: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
-        status = 'failure'
-        error_code = ''
-        method = endpoint_url.removeprefix(self.base_url)
-        try:
-            result = super()._make_get_request(endpoint_url, params)
-            if 'error' in result and 'code' in result['error']:
-                error_code = result['error']['code']
-            if 'error' not in result:
-                status = 'success'
-            return result
-        finally:
-            metrics._RPC_SERVICE_REQUESTS.labels(self._network, self._layer, self._chain_id, self._uri, method, status, error_code).inc()
+        resp = super()._make_get_request(endpoint_url, params)
+        metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES.labels(
+            self._network, self._layer, self._chain_id, self._uri
+        ).observe(sys.getsizeof(resp))
+        return resp
 
     @override
+    @record_rpc_call('_RPC_SERVICE_REQUESTS')
     def _make_post_request(
         self, endpoint_url: str, body: Union[List[str], Dict[str, Any]]
     ) -> Dict[str, Any]:
-        status = 'failure'
-        error_code = ''
-        method = endpoint_url.removeprefix(self.base_url)
-        try:
-            result = super()._make_get_request(endpoint_url, body)
-            if 'error' in result and 'code' in result['error']:
-                error_code = result['error']['code']
-            if 'error' not in result:
-                status = 'success'
-            return result
-        finally:
-            metrics._RPC_SERVICE_REQUESTS.labels(self._network, self._layer, self._chain_id, self._uri, method, status, error_code).inc()
+        payload_size = sys.getsizeof(body)
+        metrics._RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels(
+            self._network, self._layer, self._chain_id, self._uri
+        ).observe(payload_size)
+        resp = super()._make_post_request(endpoint_url, body)
+        metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES.labels(
+            self._network, self._layer, self._chain_id, self._uri
+        ).observe(sys.getsizeof(resp))
+        return resp
