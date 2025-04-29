@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 from web3 import AsyncWeb3
 
-from tests.mocked_requests import mocked_async_request_poa, mock_async_response
+from tests.mocked_requests import mock_async_response, mocked_async_request_poa
 from web3_multi_provider import (
     AsyncFallbackProvider,
     AsyncMultiProvider,
@@ -187,7 +187,7 @@ class TestAsyncFallbackProvider:
     async def test_no_endpoints(self):
         w3 = AsyncWeb3(AsyncFallbackProvider([]))
 
-        with pytest.raises(NoActiveProviderError):
+        with pytest.raises(RuntimeError):
             await w3.eth.get_block("latest")
 
     @patch(

@@ -1,14 +1,13 @@
 import time
-
-from web3._utils.http import DEFAULT_HTTP_TIMEOUT
-
-import web3_multi_provider.metrics as metrics
-from typing import Any, Callable, Awaitable, Optional, Union, Dict
+from typing import Any, Awaitable, Callable, Dict, Optional, Union
 
 import requests
 from aiohttp import ClientResponse
 from eth_typing import URI
+from web3._utils.http import DEFAULT_HTTP_TIMEOUT
 from web3._utils.http_session_manager import HTTPSessionManager
+
+import web3_multi_provider.metrics as metrics
 
 
 class HTTPSessionManagerProxy(HTTPSessionManager):
@@ -118,7 +117,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         Returns:
             requests.Response: HTTP response.
         """
-        return self._timed_call(super().get_response_from_get_request, False, endpoint_uri, args, kwargs)
+        return self._timed_call(super().get_response_from_get_request, False, endpoint_uri, *args, **kwargs)
 
     def get_response_from_post_request(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> requests.Response:
         """
@@ -132,7 +131,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         Returns:
             requests.Response: HTTP response.
         """
-        return self._timed_call(super().get_response_from_post_request, False, endpoint_uri, args, kwargs)
+        return self._timed_call(super().get_response_from_post_request, False, endpoint_uri, *args, **kwargs)
 
     def get_response_from_post_request_batch(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> requests.Response:
         """
@@ -146,7 +145,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         Returns:
             requests.Response: HTTP response.
         """
-        return self._timed_call(super().get_response_from_post_request, True, endpoint_uri, args, kwargs)
+        return self._timed_call(super().get_response_from_post_request, True, endpoint_uri, *args, **kwargs)
 
     async def async_get_response_from_get_request(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> ClientResponse:
         """
@@ -160,7 +159,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         Returns:
             ClientResponse: AIOHTTP response object.
         """
-        return await self._timed_async_call(super().async_get_response_from_get_request, False, endpoint_uri, args, kwargs)
+        return await self._timed_async_call(super().async_get_response_from_get_request, False, endpoint_uri, *args, **kwargs)
 
     async def async_get_response_from_post_request(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> ClientResponse:
         """
@@ -174,7 +173,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         Returns:
             ClientResponse: AIOHTTP response.
         """
-        return await self._timed_async_call(super().async_get_response_from_post_request, False, endpoint_uri, args, kwargs)
+        return await self._timed_async_call(super().async_get_response_from_post_request, False, endpoint_uri, *args, **kwargs)
 
     async def async_get_response_from_post_request_batch(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> ClientResponse:
         """
@@ -188,7 +187,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         Returns:
             ClientResponse: AIOHTTP response.
         """
-        return await self._timed_async_call(super().async_get_response_from_post_request, True, endpoint_uri, args, kwargs)
+        return await self._timed_async_call(super().async_get_response_from_post_request, True, endpoint_uri, *args, **kwargs)
 
     def make_post_request_batch(
         self, endpoint_uri: URI, data: Union[bytes, Dict[str, Any]], **kwargs: Any

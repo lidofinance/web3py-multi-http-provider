@@ -1,6 +1,6 @@
 import logging
 from queue import Empty
-from typing import Optional, Union, Any, override, List, Tuple, cast
+from typing import Any, cast, List, Optional, override, Tuple, Union
 
 from eth_typing import URI
 from web3 import HTTPProvider, JSONBaseProvider
@@ -10,9 +10,9 @@ from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
 import web3_multi_provider.metrics as metrics
-from web3_multi_provider.metrics_decorator import record_rpc_call, observe_batch_size, observe_input_payload, observe_output_payload
 from web3_multi_provider.exceptions import ProviderInitialization
 from web3_multi_provider.http_session_manager_proxy import HTTPSessionManagerProxy
+from web3_multi_provider.metrics_decorator import observe_batch_size, observe_input_payload, observe_output_payload, record_rpc_call
 from web3_multi_provider.util import normalize_provider
 
 logger = logging.getLogger(__name__)

@@ -1,8 +1,9 @@
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from web3_multi_provider.http_session_manager_proxy import HTTPSessionManagerProxy
+import pytest
+
 from web3_multi_provider import metrics
+from web3_multi_provider.http_session_manager_proxy import HTTPSessionManagerProxy
 
 
 @pytest.fixture

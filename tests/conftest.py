@@ -1,8 +1,10 @@
 import dataclasses
-from unittest.mock import patch, MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+import responses
 
+from mocked_requests import _AVAILABLE_ADDRESS, _NOT_AVAILABLE_ADDRESS_1, _NOT_AVAILABLE_ADDRESS_2, mock_response
 from web3_multi_provider.metrics import init_metrics, MetricsConfig
 
 
@@ -40,3 +42,38 @@ def mock_metrics() -> MockMetrics:
             rpc_service_request_payload_bytes=rpc_req_payload,
             rpc_service_response_payload_bytes=rpc_resp_payload,
         )
+
+
+@pytest.fixture(autouse=True)
+def http_responses(request):
+    with responses.RequestsMock() as rsps:
+        marker = request.node.get_closest_marker("http_mock")
+
+        def _rsp_callback(request):
+            cm = mock_response(request.url)
+            if marker and marker.kwargs.get("custom_resp"):
+                cm = mock_response(request.url, marker.kwargs["custom_resp"])
+            resp = cm.__enter__()
+            headers = {"Content-Type": "application/json"}
+            return resp.status_code, headers, resp.content
+
+        responses.add_callback(
+            responses.POST,
+            _AVAILABLE_ADDRESS,
+            callback=_rsp_callback,
+            content_type="application/json",
+        )
+        responses.add_callback(
+            responses.POST,
+            _NOT_AVAILABLE_ADDRESS_1,
+            callback=_rsp_callback,
+            content_type="application/json",
+        )
+        responses.add_callback(
+            responses.POST,
+            _NOT_AVAILABLE_ADDRESS_2,
+            callback=_rsp_callback,
+            content_type="application/json",
+        )
+
+        yield rsps

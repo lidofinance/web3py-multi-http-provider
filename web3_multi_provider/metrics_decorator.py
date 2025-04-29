@@ -1,10 +1,10 @@
 import functools
 import inspect
-from typing import List, Tuple, Any
-
-import web3_multi_provider.metrics as metrics
+from typing import Any, List, Tuple
 
 from web3.types import RPCEndpoint
+
+import web3_multi_provider.metrics as metrics
 
 
 def record_rpc_call(metric_name: str = '_RPC_SERVICE_REQUESTS'):

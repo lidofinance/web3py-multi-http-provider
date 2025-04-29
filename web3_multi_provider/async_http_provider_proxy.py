@@ -1,19 +1,17 @@
 import logging
-
-from web3._utils.batching import sort_batch_response_by_response_ids
-
-import web3_multi_provider.metrics as metrics
 from queue import Empty
-from typing import Optional, Union, Any, override, List, Tuple, cast
+from typing import Any, cast, List, Optional, override, Tuple, Union
 
 from eth_typing import URI
-from web3 import JSONBaseProvider, AsyncHTTPProvider
+from web3 import AsyncHTTPProvider, JSONBaseProvider
+from web3._utils.batching import sort_batch_response_by_response_ids
 from web3._utils.empty import empty
 from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
-from web3_multi_provider.metrics_decorator import observe_batch_size, record_rpc_call, observe_output_payload, observe_input_payload
+import web3_multi_provider.metrics as metrics
 from web3_multi_provider.http_session_manager_proxy import HTTPSessionManagerProxy
+from web3_multi_provider.metrics_decorator import observe_batch_size, observe_input_payload, observe_output_payload, record_rpc_call
 from web3_multi_provider.util import normalize_provider
 
 logger = logging.getLogger(__name__)

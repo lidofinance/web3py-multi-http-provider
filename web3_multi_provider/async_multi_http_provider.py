@@ -62,6 +62,7 @@ class AsyncMultiProvider(AsyncBaseMultiProvider):
     _current_provider_index: int = 0
 
     async def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
+        exceptions = []
         providers_count = len(self._providers)
 
         for _ in range(providers_count):
@@ -70,6 +71,7 @@ class AsyncMultiProvider(AsyncBaseMultiProvider):
             try:
                 response = await active_provider.make_request(method, params)
             except Exception as error:  # pylint: disable=broad-except
+                exceptions.append(error)
                 self._current_provider_index = (self._current_provider_index + 1) % providers_count
                 logger.warning(
                     {
@@ -93,17 +95,19 @@ class AsyncMultiProvider(AsyncBaseMultiProvider):
 
         msg = "No active provider available."
         logger.debug({"msg": msg})
-        raise NoActiveProviderError(msg)
+        raise NoActiveProviderError.from_exceptions(msg, exceptions)
 
 
 class AsyncFallbackProvider(AsyncBaseMultiProvider):
     """Basic fallback provider"""
 
     async def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
+        exceptions = []
         for provider in self._providers:
             try:
                 response = await provider.make_request(method, params)
             except Exception as error:  # pylint: disable=broad-except
+                exceptions.append(error)
                 logger.warning(
                     {
                         "msg": "Provider not responding.",
@@ -124,4 +128,4 @@ class AsyncFallbackProvider(AsyncBaseMultiProvider):
 
         msg = "No active provider available."
         logger.debug({"msg": msg})
-        raise NoActiveProviderError(msg)
+        raise NoActiveProviderError.from_exceptions(msg, exceptions)
