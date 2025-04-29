@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 import responses
 
-from mocked_requests import _AVAILABLE_ADDRESS, _NOT_AVAILABLE_ADDRESS_1, _NOT_AVAILABLE_ADDRESS_2, mock_response
+from tests.mocked_requests import _AVAILABLE_ADDRESS, _NOT_AVAILABLE_ADDRESS_1, _NOT_AVAILABLE_ADDRESS_2, mock_response
 from web3_multi_provider.metrics import init_metrics, MetricsConfig
 
 
