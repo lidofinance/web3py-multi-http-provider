@@ -119,7 +119,7 @@ class AsyncFallbackProvider(AsyncBaseMultiProvider):
 
                 logger.debug(
                     {
-                        "msg": "Send request using FallbackProvider.",
+                        "msg": "Send request using AsyncFallbackProvider.",
                         "method": method,
                         "params": str(params),
                     }

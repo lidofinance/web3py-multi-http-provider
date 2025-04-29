@@ -13,6 +13,56 @@ from web3_multi_provider import (
 )
 
 
+@pytest.mark.parametrize("provider_cls", [AsyncMultiProvider, AsyncFallbackProvider])
+@patch(
+    "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+    return_value=1
+)
+@patch(
+    "web3._utils.http_session_manager.HTTPSessionManager.async_get_response_from_post_request",
+    side_effect=mock_async_response,
+)
+@pytest.mark.asyncio
+async def test_one_provider_works(make_post_request, mock_fetch_chain_id, provider_cls, caplog, mock_metrics):
+    provider = provider_cls(
+        [
+            "http://127.0.0.1:9001",
+            "http://127.0.0.1:9000",
+        ]
+    )
+
+    w3 = AsyncWeb3(provider)
+
+    with caplog.at_level(logging.DEBUG):
+        await w3.eth.get_block("latest")
+        await w3.eth.get_block("latest")
+
+    assert mock_metrics.rpc_service_requests.return_value.inc.call_count > 0
+    assert mock_metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
+    assert mock_metrics.http_rpc_service_requests.return_value.inc.call_count > 0
+    assert mock_metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
+    assert mock_metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
+
+    expected_provider_name = provider_cls.__name__
+    assert caplog.records[2].msg == {
+        "msg": "Provider not responding.",
+        "error": "Mocked connection error.",
+    }
+
+    assert caplog.records[5].msg == {
+        "msg": f"Send request using {expected_provider_name}.",
+        "method": "eth_getBlockByNumber",
+        "params": "('latest', False)",
+    }
+
+    # Make sure second request will be directory to second provider and will ignore second one
+    assert caplog.records[-1].msg == {
+        "msg": f"Send request using {expected_provider_name}.",
+        "method": "eth_getBlockByNumber",
+        "params": "('latest', False)",
+    }
+
+
 class TestHttpProvider:
     _caplog = None
 
@@ -20,19 +70,6 @@ class TestHttpProvider:
     def __inject_fixtures(self, caplog, mock_metrics):
         self._caplog = caplog
         self._metrics = mock_metrics
-
-    @patch(
-        "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
-        return_value=1
-    )
-    @patch(
-        "web3._utils.http_session_manager.HTTPSessionManager.async_get_response_from_post_request",
-        side_effect=mock_async_response,
-    )
-    @pytest.mark.asyncio
-    async def test_one_provider_works(self, make_post_request, mock_fetch_chain_id):
-        await self.one_provider_works(AsyncMultiProvider)
-        await self.one_provider_works(AsyncFallbackProvider)
 
     @patch(
         "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
@@ -67,44 +104,6 @@ class TestHttpProvider:
 
         # Make sure there is no inf recursion
         assert len(self._caplog.records) == 6
-
-    async def one_provider_works(self, provider_class):
-        provider = provider_class(
-            [
-                "http://127.0.0.1:9001",
-                "http://127.0.0.1:9000",
-            ]
-        )
-
-        w3 = AsyncWeb3(provider)
-
-        with self._caplog.at_level(logging.DEBUG):
-            await w3.eth.get_block("latest")
-            await w3.eth.get_block("latest")
-
-        assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-
-        assert self._caplog.records[2].msg == {
-            "msg": "Provider not responding.",
-            "error": "Mocked connection error.",
-        }
-
-        assert self._caplog.records[5].msg == {
-            "msg": "Send request using AsyncMultiProvider.",
-            "method": "eth_getBlockByNumber",
-            "params": "('latest', False)",
-        }
-
-        # Make sure second request will be directory to second provider and will ignore second one
-        assert self._caplog.records[9].msg == {
-            "msg": "Send request using AsyncMultiProvider.",
-            "method": "eth_getBlockByNumber",
-            "params": "('latest', False)",
-        }
 
     def test_protocols_support(self):
         AsyncMultiProvider(["http://127.0.0.1:9001"])
