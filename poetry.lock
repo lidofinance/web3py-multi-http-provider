@@ -2071,20 +2071,6 @@ socks = ["PySocks (>=1.5.6,!=1.5.7)"]
 use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
-name = "requests-file"
-version = "2.1.0"
-description = "File transport adapter for Requests"
-optional = false
-python-versions = "*"
-files = [
-    {file = "requests_file-2.1.0-py2.py3-none-any.whl", hash = "sha256:cf270de5a4c5874e84599fc5778303d496c10ae5e870bfa378818f35d21bda5c"},
-    {file = "requests_file-2.1.0.tar.gz", hash = "sha256:0f549a3f3b0699415ac04d167e9cb39bccfb730cb832b4d20be3d9867356e658"},
-]
-
-[package.dependencies]
-requests = ">=1.0.0"
-
-[[package]]
 name = "responses"
 version = "0.25.7"
 description = "A utility library for mocking out the `requests` Python library."
@@ -2122,27 +2108,6 @@ dev = ["build (>=0.9.0)", "bump_my_version (>=0.19.0)", "hypothesis (>=6.22.0,<6
 docs = ["sphinx (>=6.0.0)", "sphinx-autobuild (>=2021.3.14)", "sphinx_rtd_theme (>=1.0.0)", "towncrier (>=24,<25)"]
 rust-backend = ["rusty-rlp (>=0.2.1)"]
 test = ["hypothesis (>=6.22.0,<6.108.7)", "pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)"]
-
-[[package]]
-name = "tldextract"
-version = "5.1.3"
-description = "Accurately separates a URL's subdomain, domain, and public suffix, using the Public Suffix List (PSL). By default, this includes the public ICANN TLDs and their exceptions. You can optionally support the Public Suffix List's private domains as well."
-optional = false
-python-versions = ">=3.9"
-files = [
-    {file = "tldextract-5.1.3-py3-none-any.whl", hash = "sha256:78de310cc2ca018692de5ddf320f9d6bd7c5cf857d0fd4f2175f0cdf4440ea75"},
-    {file = "tldextract-5.1.3.tar.gz", hash = "sha256:d43c7284c23f5dc8a42fd0fee2abede2ff74cc622674e4cb07f514ab3330c338"},
-]
-
-[package.dependencies]
-filelock = ">=3.0.8"
-idna = "*"
-requests = ">=2.1.0"
-requests-file = ">=1.4"
-
-[package.extras]
-release = ["build", "twine"]
-testing = ["mypy", "pytest", "pytest-gitignore", "pytest-mock", "responses", "ruff", "syrupy", "tox", "tox-uv", "types-filelock", "types-requests"]
 
 [[package]]
 name = "tomlkit"
@@ -2455,4 +2420,4 @@ metrics = ["prometheus-client"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.12,<4"
-content-hash = "9121ec3510124ce64f13484267e95810eb76d06a12aba939398498a11bb8e169"
+content-hash = "93b6d4d3524cd3906cca0757d0a9c874892373d90f9d950d773c215be2d4bad8"

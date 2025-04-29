@@ -1,7 +1,6 @@
 import logging
 import re
 
-import tldextract
 from web3._utils.rpc_abi import RPC
 from web3.exceptions import ExtraDataLengthError
 from web3.middleware.proof_of_authority import extradata_to_poa_cleanup
@@ -39,8 +38,8 @@ def normalize_provider(uri: str) -> str:
         return uri
 
     hostname = uri.split('/')[0]
-    extraction = tldextract.extract(hostname)
-    if extraction.domain and extraction.suffix:
-        return f'{extraction.domain}.{extraction.suffix}'
+    parts = hostname.split('.')
+    if len(parts) >= 2:
+        return '.'.join(parts[-2:])
 
     raise ValueError(f'Unhandled hostname format: {{uri}}. Hostname must be either an IP address or a valid provider address.')

@@ -12,6 +12,7 @@ from web3_multi_provider.util import normalize_provider
     ("http://rpc.ankr.com/eth", "ankr.com"),
     ("https://my.provider.example.io/path", "example.io"),
     ("my.provider.infura.io", "infura.io"),
+    ("abc.co.uk", "co.uk"), # intentionally done this way
 ])
 def test_normalize_provider_valid(input_uri, expected):
     assert normalize_provider(input_uri) == expected
