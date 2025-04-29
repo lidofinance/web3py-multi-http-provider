@@ -1,7 +1,5 @@
 # pylint: disable=duplicate-code
 import logging
-from abc import ABC
-from typing import Any
 
 from eth_typing import URI
 from web3 import AsyncHTTPProvider
@@ -14,11 +12,13 @@ from web3_multi_provider.async_http_provider_proxy import AsyncHTTPProviderProxy
 from web3_multi_provider.exceptions import NoActiveProviderError, ProtocolNotSupported
 from web3_multi_provider.util import sanitize_poa_response
 
+from abc import ABC, abstractmethod
+from typing import Any, Iterable
+
 logger = logging.getLogger(__name__)
 
-
 class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
-    """Base async provider for providers with multiple endpoints"""
+    """Base async provider for multiple endpoint handling strategies."""
 
     _providers: list[AsyncHTTPProvider]
 
@@ -26,9 +26,7 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
         self,
         endpoint_urls: list[URI | str],
         request_kwargs: Any | None = None,
-        exception_retry_configuration: (
-            ExceptionRetryConfiguration | Empty | None
-        ) = empty,
+        exception_retry_configuration: ExceptionRetryConfiguration | Empty | None = empty,
         **kwargs: Any,
     ):
         logger.debug({"msg": f"Initialize {self.__class__.__name__}"})
@@ -53,79 +51,65 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
 
         super().__init__()
 
-
-class AsyncMultiProvider(AsyncBaseMultiProvider):
-    """
-    Provider that switches rpc endpoint to next if current is broken.
-    """
-
-    _current_provider_index: int = 0
-
     async def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
-        exceptions = []
-        providers_count = len(self._providers)
+        return await self._make_request_with_failover(
+            method=method,
+            params=params,
+            provider_name=self.__class__.__name__,
+            provider_iter=self.get_providers(),
+        )
 
-        for _ in range(providers_count):
-            active_provider = self._providers[self._current_provider_index]
+    async def _make_request_with_failover(
+        self,
+        method: RPCEndpoint,
+        params: Any,
+        provider_name: str,
+        provider_iter: Iterable[AsyncHTTPProvider],
+    ) -> RPCResponse:
+        exceptions: list[Exception] = []
 
-            try:
-                response = await active_provider.make_request(method, params)
-            except Exception as error:  # pylint: disable=broad-except
-                exceptions.append(error)
-                self._current_provider_index = (self._current_provider_index + 1) % providers_count
-                logger.warning(
-                    {
-                        "msg": "Provider not responding.",
-                        "error": str(error).replace(
-                            str(active_provider.endpoint_uri), "****"
-                        ),
-                    }
-                )
-            else:
-                sanitize_poa_response(method, response)
-
-                logger.debug(
-                    {
-                        "msg": "Send request using AsyncMultiProvider.",
-                        "method": method,
-                        "params": str(params),
-                    }
-                )
-                return response
-
-        msg = "No active provider available."
-        logger.debug({"msg": msg})
-        raise NoActiveProviderError.from_exceptions(msg, exceptions)
-
-
-class AsyncFallbackProvider(AsyncBaseMultiProvider):
-    """Basic fallback provider"""
-
-    async def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
-        exceptions = []
-        for provider in self._providers:
+        for provider in provider_iter:
             try:
                 response = await provider.make_request(method, params)
             except Exception as error:  # pylint: disable=broad-except
                 exceptions.append(error)
-                logger.warning(
-                    {
-                        "msg": "Provider not responding.",
-                        "error": str(error).replace(str(provider.endpoint_uri), "****"),
-                    }
-                )
+                logger.warning({
+                    "msg": f"Provider not responding.",
+                    "error": str(error).replace(str(provider.endpoint_uri), "****"),
+                })
             else:
                 sanitize_poa_response(method, response)
-
-                logger.debug(
-                    {
-                        "msg": "Send request using AsyncFallbackProvider.",
-                        "method": method,
-                        "params": str(params),
-                    }
-                )
+                logger.debug({
+                    "msg": f"Send request using {provider_name}.",
+                    "method": method,
+                    "params": str(params),
+                })
                 return response
 
-        msg = "No active provider available."
+        msg = f"No active provider available in {provider_name}."
         logger.debug({"msg": msg})
         raise NoActiveProviderError.from_exceptions(msg, exceptions)
+
+    @abstractmethod
+    def get_providers(self) -> Iterable[AsyncHTTPProvider]:
+        raise NotImplementedError
+
+
+class AsyncMultiProvider(AsyncBaseMultiProvider):
+    """Round-robin failover: rotates provider on failure."""
+
+    _current_provider_index: int = 0
+
+    def get_providers(self) -> Iterable[AsyncHTTPProvider]:
+        count = len(self._providers)
+        for _ in range(count):
+            provider = self._providers[self._current_provider_index]
+            self._current_provider_index = (self._current_provider_index + 1) % count
+            yield provider
+
+
+class AsyncFallbackProvider(AsyncBaseMultiProvider):
+    """Simple fallback: tries providers in order."""
+
+    def get_providers(self) -> Iterable[AsyncHTTPProvider]:
+        return iter(self._providers)
