@@ -53,7 +53,7 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         """
         super().__init__(endpoint_uri, request_kwargs, exception_retry_configuration, **kwargs)
         self._chain_id: Optional[int] = None
-        self._network: Optional[str] = None
+        self._network: str = ''  # to pass fetching of the chain_id
         self._uri: str = normalize_provider(self.endpoint_uri)
         self._layer = layer
 
@@ -177,4 +177,3 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         return sort_batch_response_by_response_ids(
             cast(List[RPCResponse], response)
         )
-
