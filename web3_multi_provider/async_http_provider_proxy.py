@@ -62,7 +62,7 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         Lazily fetches chain ID and maps it to a network name for metric labeling.
         Also sets up the request session manager for batch requests.
         """
-        if self._chain_id is not '':
+        if self._chain_id != '':
             return
         self._chain_id = str(await self._fetch_chain_id())
         self._network = metrics._CHAIN_ID_TO_NAME.get(int(self._chain_id), 'unknown')
