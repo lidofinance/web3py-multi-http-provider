@@ -55,7 +55,7 @@ _RPC_SERVICE_REQUEST_PAYLOAD_BYTES = _DummyMetric()
 _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES = _DummyMetric()
 
 
-def init_metrics(metrics_config: MetricsConfig, registry=None):
+def init_metrics(metrics_config: MetricsConfig = MetricsConfig(), registry=None):
     _prom = _init_prometheus_metrics(registry)
     global _HTTP_RPC_SERVICE_REQUESTS, _HTTP_RPC_BATCH_SIZE
     global _RPC_SERVICE_REQUESTS, _RPC_SERVICE_RESPONSE_SECONDS, _RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES
