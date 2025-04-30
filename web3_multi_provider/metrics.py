@@ -88,7 +88,7 @@ def init_metrics(metrics_config: MetricsConfig = MetricsConfig(), registry=None)
     )
 
     _RPC_SERVICE_RESPONSE_SECONDS = histogram(
-        "rpc_service_response_seconds",
+        "http_rpc_response_seconds",
         "Distribution of RPC response times (in seconds).",
         ["network", "layer", "chainId", "provider"],
         namespace=metrics_config.namespace,
