@@ -13,8 +13,8 @@ from web3_multi_provider.multi_http_provider import (
     ProtocolNotSupported,
 )
 
-
-def test_protocols_support():
+@patch("web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id", return_value=1)
+def test_protocols_support(mock_fetch_chain_id):
     MultiProvider(["http://127.0.0.1:9001"])
     MultiProvider(["https://127.0.0.1:9001"])
 

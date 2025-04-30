@@ -10,10 +10,11 @@ from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
 from web3_multi_provider.exceptions import NoActiveProviderError, ProtocolNotSupported
-from web3_multi_provider.http_provider_proxy import HTTPProviderProxy, ProviderInitialization
+from web3_multi_provider.http_provider_proxy import HTTPProviderProxy
 from web3_multi_provider.util import sanitize_poa_response
 
 logger = logging.getLogger(__name__)
+
 
 class BaseMultiProvider(JSONBaseProvider, ABC):
     """Base provider for providers with multiple endpoints"""
@@ -40,20 +41,14 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
                 protocol = endpoint_uri.split("://")[0]
                 raise ProtocolNotSupported(f'Protocol "{protocol}" is not supported.')
 
-            try:
-                provider = HTTPProviderProxy(
-                    endpoint_uri=endpoint_uri,
-                    request_kwargs=request_kwargs,
-                    session=session,
-                    exception_retry_configuration=exception_retry_configuration,
-                    **kwargs,
-                )
-                self._providers.append(provider)
-            except ProviderInitialization as e:
-                logger.error({
-                    "msg": "Failed to initialize a provider",
-                    "error": str(e).replace(str(endpoint_uri), "****"),
-                })
+            provider = HTTPProviderProxy(
+                endpoint_uri=endpoint_uri,
+                request_kwargs=request_kwargs,
+                session=session,
+                exception_retry_configuration=exception_retry_configuration,
+                **kwargs,
+            )
+            self._providers.append(provider)
 
         super().__init__()
 

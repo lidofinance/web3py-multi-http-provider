@@ -32,18 +32,12 @@ class _DummyMetric:
 
 
 def _init_prometheus_metrics(registry=None):
-    try:
-        from prometheus_client import Counter, Histogram, REGISTRY
-        kwargs = {"registry": registry or REGISTRY}
-        return {
-            "Counter": lambda *args, **kw: Counter(*args, **kw, **kwargs),
-            "Histogram": lambda *args, **kw: Histogram(*args, **kw, **kwargs),
-        }
-    except ImportError:
-        return {
-            "Counter": lambda *args, **kw: _DummyMetric(),
-            "Histogram": lambda *args, **kw: _DummyMetric(),
-        }
+    from prometheus_client import Counter, Histogram, REGISTRY
+    kwargs = {"registry": registry or REGISTRY}
+    return {
+        "Counter": lambda *args, **kw: Counter(*args, **kw, **kwargs),
+        "Histogram": lambda *args, **kw: Histogram(*args, **kw, **kwargs),
+    }
 
 
 _HTTP_RPC_SERVICE_REQUESTS = _DummyMetric()

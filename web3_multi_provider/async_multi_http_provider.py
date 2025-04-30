@@ -10,7 +10,7 @@ from web3.types import RPCEndpoint, RPCResponse
 
 from web3_multi_provider.async_http_provider_proxy import AsyncHTTPProviderProxy
 from web3_multi_provider.exceptions import NoActiveProviderError, ProtocolNotSupported
-from web3_multi_provider.util import sanitize_poa_response
+from web3_multi_provider.util import normalize_provider, sanitize_poa_response
 
 from abc import ABC, abstractmethod
 from typing import Any, Iterable
