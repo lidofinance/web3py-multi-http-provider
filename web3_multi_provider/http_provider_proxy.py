@@ -60,6 +60,7 @@ class HTTPProviderProxy(HTTPProvider):
         super().__init__(endpoint_uri, request_kwargs, session, exception_retry_configuration, **kwargs)
         self._layer = layer
         self._uri = normalize_provider(self.endpoint_uri)
+        self._chain_id = ''
         self._network = ''  # to pass fetching of the chain_id
         self._chain_id = str(self._fetch_chain_id())
         self._network = metrics._CHAIN_ID_TO_NAME.get(int(self._chain_id), 'unknown')

@@ -23,7 +23,7 @@ async def test_make_request_success_initializes_chain_info(proxy, mock_metrics):
         result = await proxy.make_request(RPCEndpoint("eth_blockNumber"), [])
 
         assert result["result"] == "0x123"
-        assert proxy._chain_id == 1
+        assert proxy._chain_id == '1'
         assert proxy._network == "ethereum"
         mock_metrics.rpc_service_requests.return_value.inc.assert_called_once()
 

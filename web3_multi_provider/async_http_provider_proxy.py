@@ -52,7 +52,7 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
             **kwargs: Additional arguments passed to the base class.
         """
         super().__init__(endpoint_uri, request_kwargs, exception_retry_configuration, **kwargs)
-        self._chain_id: Optional[int] = None
+        self._chain_id: str = ''
         self._network: str = ''  # to pass fetching of the chain_id
         self._uri: str = normalize_provider(self.endpoint_uri)
         self._layer = layer
@@ -62,10 +62,10 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         Lazily fetches chain ID and maps it to a network name for metric labeling.
         Also sets up the request session manager for batch requests.
         """
-        if self._chain_id is not None:
+        if self._chain_id is not '':
             return
-        self._chain_id = await self._fetch_chain_id()
-        self._network = metrics._CHAIN_ID_TO_NAME.get(self._chain_id, 'unknown')
+        self._chain_id = str(await self._fetch_chain_id())
+        self._network = metrics._CHAIN_ID_TO_NAME.get(int(self._chain_id), 'unknown')
         self._request_session_manager = HTTPSessionManagerProxy(
             chain_id=self._chain_id,
             uri=self._uri,
