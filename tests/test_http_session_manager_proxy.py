@@ -28,7 +28,7 @@ def test_get_response_from_get_request(proxy, mock_metric):
     ) as super_mock:
         response = HTTPSessionManagerProxy.get_response_from_get_request(proxy, "https://example.com")
         assert response == mock_response
-        mock_metric.assert_called_with('ethereum', 'unknown', '1', 'https://node.example', 'False', '200')
+        mock_metric.assert_called_with('ethereum', 'unknown', '1', 'https://node.example', 'False', '200', 'success')
         mock_metric.return_value.inc.assert_called_once()
 
 
@@ -43,7 +43,7 @@ def test_get_response_from_post_request(proxy, mock_metric):
     ) as super_mock:
         response = HTTPSessionManagerProxy.get_response_from_post_request(proxy, "https://example.com")
         assert response == mock_response
-        mock_metric.assert_called_with('ethereum', 'unknown', '1', 'https://node.example', 'False', '201')
+        mock_metric.assert_called_with('ethereum', 'unknown', '1', 'https://node.example', 'False', '201', 'success')
         mock_metric.return_value.inc.assert_called_once()
 
 
@@ -59,7 +59,7 @@ async def test_async_get_response_from_get_request(proxy, mock_metric):
     ) as super_mock:
         response = await HTTPSessionManagerProxy.async_get_response_from_get_request(proxy, "https://example.com")
         assert response == mock_response
-        mock_metric.assert_called_with('ethereum', 'unknown', '1', 'https://node.example', 'False', '200')
+        mock_metric.assert_called_with('ethereum', 'unknown', '1', 'https://node.example', 'False', '200', 'success')
         mock_metric.return_value.inc.assert_called_once()
 
 
@@ -75,5 +75,5 @@ async def test_async_get_response_from_post_request(proxy, mock_metric):
     ) as super_mock:
         response = await HTTPSessionManagerProxy.async_get_response_from_post_request(proxy, "https://example.com")
         assert response == mock_response
-        mock_metric.assert_called_with('ethereum', 'unknown', '1', 'https://node.example', 'False', '500')
+        mock_metric.assert_called_with('ethereum', 'unknown', '1', 'https://node.example', 'False', '500', 'success')
         mock_metric.return_value.inc.assert_called_once()

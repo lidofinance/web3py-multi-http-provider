@@ -63,7 +63,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             response = func(*args, **kwargs)
             metrics._HTTP_RPC_SERVICE_REQUESTS.labels(
                 self._network, self._layer, self._chain_id, self._uri,
-                str(batched), str(response.status_code)
+                str(batched), str(response.status_code), 'success',
             ).inc(1)
         finally:
             duration = time.perf_counter() - start_time
@@ -96,7 +96,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             response = await func(*args, **kwargs)
             metrics._HTTP_RPC_SERVICE_REQUESTS.labels(
                 self._network, self._layer, self._chain_id, self._uri,
-                str(batched), str(response.status)
+                str(batched), str(response.status), 'success',
             ).inc(1)
         finally:
             duration = time.perf_counter() - start_time
