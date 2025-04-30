@@ -18,7 +18,7 @@ _DEFAULT_CHAIN_ID_TO_NAME: Final = {
 
 @dataclasses.dataclass
 class MetricsConfig:
-    namespace: str
+    namespace: str = ''
     chain_id_to_name: dict[int, str] = dataclasses.field(default_factory=lambda: _DEFAULT_CHAIN_ID_TO_NAME.copy())
 
 
