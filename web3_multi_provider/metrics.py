@@ -95,7 +95,7 @@ def init_metrics(metrics_config: MetricsConfig = MetricsConfig(), registry=None)
     )
 
     _RPC_SERVICE_REQUEST_PAYLOAD_BYTES = histogram(
-        "rpc_service_request_payload_bytes",
+        "http_rpc_request_payload_bytes",
         "Distribution of request payload sizes (bytes) RPC calls.",
         ["network", "layer", "chainId", "provider"],
         namespace=metrics_config.namespace,
