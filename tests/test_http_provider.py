@@ -220,7 +220,7 @@ class TestFallbackProvider:
 
         assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
         assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count == 0
+        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count == 3
         assert self._metrics.rpc_service_response_payload_bytes.return_value.inc.call_count == 0
         assert len(responses.calls) == 3
         assert responses.calls[0].request.url == "http://127.0.0.1:9001/"

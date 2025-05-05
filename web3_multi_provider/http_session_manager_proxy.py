@@ -59,18 +59,22 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             requests.Response: HTTP response object.
         """
         start_time = time.perf_counter()
+        result = 'fail'
+        code = 'unknown'
         try:
             response = func(*args, **kwargs)
-            metrics._HTTP_RPC_SERVICE_REQUESTS.labels(
-                self._network, self._layer, self._chain_id, self._uri,
-                str(batched), str(response.status_code), 'success',
-            ).inc(1)
+            code = str(response.status_code)
+            result = 'success'
+            return response
         finally:
             duration = time.perf_counter() - start_time
+            metrics._HTTP_RPC_SERVICE_REQUESTS.labels(
+                self._network, self._layer, self._chain_id, self._uri,
+                str(batched), code, result,
+            ).inc()
             metrics._RPC_SERVICE_RESPONSE_SECONDS.labels(
                 self._network, self._layer, self._chain_id, self._uri
             ).observe(duration)
-        return response
 
     async def _timed_async_call(
         self,
@@ -92,18 +96,22 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             ClientResponse: The aiohttp response.
         """
         start_time = time.perf_counter()
+        result = 'fail'
+        code = 'unknown'
         try:
             response = await func(*args, **kwargs)
-            metrics._HTTP_RPC_SERVICE_REQUESTS.labels(
-                self._network, self._layer, self._chain_id, self._uri,
-                str(batched), str(response.status), 'success',
-            ).inc(1)
+            code = str(response.status)
+            result = 'success'
+            return response
         finally:
             duration = time.perf_counter() - start_time
+            metrics._HTTP_RPC_SERVICE_REQUESTS.labels(
+                self._network, self._layer, self._chain_id, self._uri,
+                str(batched), code, result,
+            ).inc()
             metrics._RPC_SERVICE_RESPONSE_SECONDS.labels(
                 self._network, self._layer, self._chain_id, self._uri
             ).observe(duration)
-        return response
 
     def get_response_from_get_request(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> requests.Response:
         """
