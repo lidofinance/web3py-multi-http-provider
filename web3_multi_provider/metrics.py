@@ -75,7 +75,7 @@ def init_metrics(metrics_config: MetricsConfig = MetricsConfig(), registry=None)
     )
 
     _RPC_SERVICE_REQUESTS = counter(
-        "rpc_service_request",
+        "rpc_request",
         "Total number of RPC requests.",
         ["network", "layer", "chainId", "provider", "method", "result", "rpc_error_code"],
         namespace=metrics_config.namespace,
