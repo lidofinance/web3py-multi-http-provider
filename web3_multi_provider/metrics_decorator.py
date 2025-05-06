@@ -7,7 +7,7 @@ from web3.types import RPCEndpoint
 import web3_multi_provider.metrics as metrics
 
 
-def record_rpc_call(metric_name: str = '_RPC_SERVICE_REQUESTS'):
+def record_rpc_call(metric_name: str = '_RPC_REQUEST'):
     """
     Decorator that wraps an RPC method (sync or async) to record Prometheus metrics for request outcomes.
 

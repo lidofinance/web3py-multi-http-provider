@@ -43,7 +43,7 @@ def _init_prometheus_metrics(registry=None):
 _HTTP_RPC_SERVICE_REQUESTS = _DummyMetric()
 _HTTP_RPC_BATCH_SIZE = _DummyMetric()
 
-_RPC_SERVICE_REQUESTS = _DummyMetric()
+_RPC_REQUEST = _DummyMetric()
 _RPC_SERVICE_RESPONSE_SECONDS = _DummyMetric()
 _RPC_SERVICE_REQUEST_PAYLOAD_BYTES = _DummyMetric()
 _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES = _DummyMetric()
@@ -52,7 +52,7 @@ _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES = _DummyMetric()
 def init_metrics(metrics_config: MetricsConfig = MetricsConfig(), registry=None):
     _prom = _init_prometheus_metrics(registry)
     global _HTTP_RPC_SERVICE_REQUESTS, _HTTP_RPC_BATCH_SIZE
-    global _RPC_SERVICE_REQUESTS, _RPC_SERVICE_RESPONSE_SECONDS, _RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES
+    global _RPC_REQUEST, _RPC_SERVICE_RESPONSE_SECONDS, _RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES
     global _CHAIN_ID_TO_NAME
 
     counter = _prom["Counter"]
@@ -74,7 +74,7 @@ def init_metrics(metrics_config: MetricsConfig = MetricsConfig(), registry=None)
         namespace=metrics_config.namespace,
     )
 
-    _RPC_SERVICE_REQUESTS = counter(
+    _RPC_REQUEST = counter(
         "rpc_request",
         "Total number of RPC requests.",
         ["network", "layer", "chainId", "provider", "method", "result", "rpc_error_code"],

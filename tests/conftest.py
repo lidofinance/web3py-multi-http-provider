@@ -29,7 +29,7 @@ def mock_metrics() -> MockMetrics:
     with (
         patch("web3_multi_provider.metrics._HTTP_RPC_SERVICE_REQUESTS.labels", return_value=MagicMock()) as req,
         patch("web3_multi_provider.metrics._HTTP_RPC_BATCH_SIZE.labels", return_value=MagicMock()) as batch,
-        patch("web3_multi_provider.metrics._RPC_SERVICE_REQUESTS.labels", return_value=MagicMock()) as rpc_req,
+        patch("web3_multi_provider.metrics._RPC_REQUEST.labels", return_value=MagicMock()) as rpc_req,
         patch("web3_multi_provider.metrics._RPC_SERVICE_RESPONSE_SECONDS.labels", return_value=MagicMock()) as rpc_resp_sec,
         patch("web3_multi_provider.metrics._RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels", return_value=MagicMock()) as rpc_req_payload,
         patch("web3_multi_provider.metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES.labels", return_value=MagicMock()) as rpc_resp_payload,

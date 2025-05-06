@@ -91,7 +91,7 @@ class HTTPProviderProxy(HTTPProvider):
             raise ProviderInitialization("Failed to fetch chain ID") from e
 
     @override
-    @record_rpc_call('_RPC_SERVICE_REQUESTS')
+    @record_rpc_call('_RPC_REQUEST')
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
         """
         Makes a JSON-RPC request and records request metrics.
@@ -104,7 +104,7 @@ class HTTPProviderProxy(HTTPProvider):
             RPCResponse: The raw RPC response.
 
         Metrics:
-            - `_RPC_SERVICE_REQUESTS`: Incremented with status and error code (if any).
+            - `_RPC_REQUEST`: Incremented with status and error code (if any).
         """
         return super().make_request(method, params)
 

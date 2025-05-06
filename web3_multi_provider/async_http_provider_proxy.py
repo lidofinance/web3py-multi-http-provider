@@ -90,7 +90,7 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
             raise RuntimeError('Failed to fetch chain ID') from e
 
     @override
-    @record_rpc_call('_RPC_SERVICE_REQUESTS')
+    @record_rpc_call('_RPC_REQUEST')
     async def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
         """
         Makes an async JSON-RPC request, tagging metrics with status and error code.

@@ -42,7 +42,7 @@ class BeaconProxy(Beacon):
         )
 
     @override
-    @record_rpc_call('_RPC_SERVICE_REQUESTS')
+    @record_rpc_call('_RPC_REQUEST')
     def _make_get_request(
         self, endpoint_url: str, params: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
@@ -57,7 +57,7 @@ class BeaconProxy(Beacon):
             Dict[str, Any]: Decoded JSON response from the node.
 
         Metrics:
-            - Increments `_RPC_SERVICE_REQUESTS` with status and error code (if any).
+            - Increments `_RPC_REQUEST` with status and error code (if any).
             - Observes `_RPC_SERVICE_RESPONSE_PAYLOAD_BYTES` using `sys.getsizeof` on the response.
         """
         resp = super()._make_get_request(endpoint_url, params)
@@ -67,7 +67,7 @@ class BeaconProxy(Beacon):
         return resp
 
     @override
-    @record_rpc_call('_RPC_SERVICE_REQUESTS')
+    @record_rpc_call('_RPC_REQUEST')
     def _make_post_request(
         self, endpoint_url: str, body: Union[List[str], Dict[str, Any]]
     ) -> Dict[str, Any]:
@@ -84,7 +84,7 @@ class BeaconProxy(Beacon):
         Metrics:
             - Observes `_RPC_SERVICE_REQUEST_PAYLOAD_BYTES` using `sys.getsizeof` on the body.
             - Observes `_RPC_SERVICE_RESPONSE_PAYLOAD_BYTES` using `sys.getsizeof` on the response.
-            - Increments `_RPC_SERVICE_REQUESTS` with status and error code (if any).
+            - Increments `_RPC_REQUEST` with status and error code (if any).
         """
         payload_size = sys.getsizeof(body)
         metrics._RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels(
