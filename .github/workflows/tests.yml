@@ -26,7 +26,7 @@ jobs:
 
     - name: Test with pytest
       run: |
-        poetry run pytest tests
+        poetry run pytest --cov=web3_multi_provider tests
 
     - name: Test publish to pypi
       uses: JRubics/poetry-publish@v2.0
