@@ -63,41 +63,41 @@ def init_metrics(metrics_config: MetricsConfig = MetricsConfig(), registry=None)
     _HTTP_RPC_SERVICE_REQUESTS = counter(
         "http_rpc_requests",
         "Counts total HTTP requests used by any layer (EL, CL, or other).",
-        ["network", "layer", "chainId", "provider", "batched", "response_code", "result"],
+        ["network", "layer", "chain_id", "provider", "batched", "response_code", "result"],
         namespace=metrics_config.namespace,
     )
 
     _HTTP_RPC_BATCH_SIZE = histogram(
         "http_rpc_batch_size",
         "Distribution of how many JSON-RPC calls (or similar) are bundled in each HTTP request (batch size).",
-        ["network", "layer", "chainId", "provider"],
+        ["network", "layer", "chain_id", "provider"],
         namespace=metrics_config.namespace,
     )
 
     _RPC_REQUEST = counter(
         "rpc_request",
         "Total number of RPC requests.",
-        ["network", "layer", "chainId", "provider", "method", "result", "rpc_error_code"],
+        ["network", "layer", "chain_id", "provider", "method", "result", "rpc_error_code"],
         namespace=metrics_config.namespace,
     )
 
     _RPC_SERVICE_RESPONSE_SECONDS = histogram(
         "http_rpc_response_seconds",
         "Distribution of RPC response times (in seconds).",
-        ["network", "layer", "chainId", "provider"],
+        ["network", "layer", "chain_id", "provider"],
         namespace=metrics_config.namespace,
     )
 
     _RPC_SERVICE_REQUEST_PAYLOAD_BYTES = histogram(
         "http_rpc_request_payload_bytes",
         "Distribution of request payload sizes (bytes) RPC calls.",
-        ["network", "layer", "chainId", "provider"],
+        ["network", "layer", "chain_id", "provider"],
         namespace=metrics_config.namespace,
     )
 
     _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES = histogram(
         "http_rpc_response_payload_bytes",
         "Distribution of response payload sizes (bytes) RPC calls.",
-        ["network", "layer", "chainId", "provider"],
+        ["network", "layer", "chain_id", "provider"],
         namespace=metrics_config.namespace,
     )
