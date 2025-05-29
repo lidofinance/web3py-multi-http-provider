@@ -41,4 +41,4 @@ def normalize_provider(uri: str) -> str:
     if len(parts) >= 2:
         return '.'.join(parts[-2:])
 
-    raise ValueError(f"Unhandled hostname format: {uri!r}")
+    raise ValueError(f"Unhandled hostname format: {uri!r}. Hostname must be either an IP address or a valid provider address.")
