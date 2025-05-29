@@ -31,15 +31,14 @@ def normalize_provider(uri: str) -> str:
     If uri is an IP address returns as is.
     If uri is a dns address returns two highest domains.
     """
-    uri = re.sub(r'^https?://', '', uri.lower())
+    stripped = re.sub(r'^https?://', '', uri.strip().lower())
+    host = stripped.split('/')[0]
 
-    ip_match = re.match(r'^(\d{1,3}\.){3}\d{1,3}(:\d+)?$', uri)
-    if ip_match:
-        return uri
+    if re.match(r'^((\d{1,3}\.){3}\d{1,3}|localhost)(:\d+)?$', host):
+        return host
 
-    hostname = uri.split('/')[0]
-    parts = hostname.split('.')
+    parts = host.split('.')
     if len(parts) >= 2:
         return '.'.join(parts[-2:])
 
-    raise ValueError(f'Unhandled hostname format: {{uri}}. Hostname must be either an IP address or a valid provider address.')
+    raise ValueError(f"Unhandled hostname format: {uri!r}. Hostname must be either an IP address or a valid provider address.")

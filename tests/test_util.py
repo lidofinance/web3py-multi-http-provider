@@ -13,12 +13,8 @@ from web3_multi_provider.util import normalize_provider
     ("https://my.provider.example.io/path", "example.io"),
     ("my.provider.infura.io", "infura.io"),
     ("abc.co.uk", "co.uk"), # intentionally done this way
+    ("localhost:1010", "localhost:1010"),
 ])
 def test_normalize_provider_valid(input_uri, expected):
     assert normalize_provider(input_uri) == expected
-
-
-def test_normalize_provider_invalid_hostname():
-    with pytest.raises(ValueError, match="Unhandled hostname format"):
-        normalize_provider("localhost")
 
