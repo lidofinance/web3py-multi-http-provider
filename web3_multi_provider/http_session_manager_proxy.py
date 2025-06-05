@@ -26,7 +26,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         network: str,
         cache_size: int = 100,
         session_pool_max_workers: int = 5,
-        layer: Optional[str] = None
+        layer: Optional[str] = None,
     ):
         """
         Initialize the session manager and configure monitoring labels.
@@ -43,9 +43,15 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         self._chain_id = str(chain_id)
         self._uri = uri
         self._network = network
-        self._layer = 'unknown' if layer is None else layer
+        self._layer = "unknown" if layer is None else layer
 
-    def _timed_call(self, func: Callable[..., requests.Response], batched: bool, *args: Any, **kwargs: Any) -> requests.Response:
+    def _timed_call(
+        self,
+        func: Callable[..., requests.Response],
+        batched: bool,
+        *args: Any,
+        **kwargs: Any,
+    ) -> requests.Response:
         """
         Wraps a synchronous HTTP call to measure latency and count status.
 
@@ -59,18 +65,23 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             requests.Response: HTTP response object.
         """
         start_time = time.perf_counter()
-        result = 'fail'
-        code = 'unknown'
+        result = "fail"
+        code = "unknown"
         try:
             response = func(*args, **kwargs)
             code = str(response.status_code)
-            result = 'success'
+            result = "success"
             return response
         finally:
             duration = time.perf_counter() - start_time
             metrics._HTTP_RPC_SERVICE_REQUESTS.labels(
-                self._network, self._layer, self._chain_id, self._uri,
-                str(batched), code, result,
+                self._network,
+                self._layer,
+                self._chain_id,
+                self._uri,
+                str(batched),
+                code,
+                result,
             ).inc()
             metrics._RPC_SERVICE_RESPONSE_SECONDS.labels(
                 self._network, self._layer, self._chain_id, self._uri
@@ -96,24 +107,31 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             ClientResponse: The aiohttp response.
         """
         start_time = time.perf_counter()
-        result = 'fail'
-        code = 'unknown'
+        result = "fail"
+        code = "unknown"
         try:
             response = await func(*args, **kwargs)
             code = str(response.status)
-            result = 'success'
+            result = "success"
             return response
         finally:
             duration = time.perf_counter() - start_time
             metrics._HTTP_RPC_SERVICE_REQUESTS.labels(
-                self._network, self._layer, self._chain_id, self._uri,
-                str(batched), code, result,
+                self._network,
+                self._layer,
+                self._chain_id,
+                self._uri,
+                str(batched),
+                code,
+                result,
             ).inc()
             metrics._RPC_SERVICE_RESPONSE_SECONDS.labels(
                 self._network, self._layer, self._chain_id, self._uri
             ).observe(duration)
 
-    def get_response_from_get_request(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> requests.Response:
+    def get_response_from_get_request(
+        self, endpoint_uri: URI, *args: Any, **kwargs: Any
+    ) -> requests.Response:
         """
         Performs a timed GET request using the session manager.
 
@@ -125,9 +143,13 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         Returns:
             requests.Response: HTTP response.
         """
-        return self._timed_call(super().get_response_from_get_request, False, endpoint_uri, *args, **kwargs)
+        return self._timed_call(
+            super().get_response_from_get_request, False, endpoint_uri, *args, **kwargs
+        )
 
-    def get_response_from_post_request(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> requests.Response:
+    def get_response_from_post_request(
+        self, endpoint_uri: URI, *args: Any, **kwargs: Any
+    ) -> requests.Response:
         """
         Performs a timed POST request using the session manager.
 
@@ -139,9 +161,13 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         Returns:
             requests.Response: HTTP response.
         """
-        return self._timed_call(super().get_response_from_post_request, False, endpoint_uri, *args, **kwargs)
+        return self._timed_call(
+            super().get_response_from_post_request, False, endpoint_uri, *args, **kwargs
+        )
 
-    def get_response_from_post_request_batch(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> requests.Response:
+    def get_response_from_post_request_batch(
+        self, endpoint_uri: URI, *args: Any, **kwargs: Any
+    ) -> requests.Response:
         """
         Performs a timed POST batch request.
 
@@ -153,9 +179,13 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         Returns:
             requests.Response: HTTP response.
         """
-        return self._timed_call(super().get_response_from_post_request, True, endpoint_uri, *args, **kwargs)
+        return self._timed_call(
+            super().get_response_from_post_request, True, endpoint_uri, *args, **kwargs
+        )
 
-    async def async_get_response_from_get_request(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> ClientResponse:
+    async def async_get_response_from_get_request(
+        self, endpoint_uri: URI, *args: Any, **kwargs: Any
+    ) -> ClientResponse:
         """
         Performs an async GET request with metrics.
 
@@ -167,9 +197,17 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         Returns:
             ClientResponse: AIOHTTP response object.
         """
-        return await self._timed_async_call(super().async_get_response_from_get_request, False, endpoint_uri, *args, **kwargs)
+        return await self._timed_async_call(
+            super().async_get_response_from_get_request,
+            False,
+            endpoint_uri,
+            *args,
+            **kwargs,
+        )
 
-    async def async_get_response_from_post_request(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> ClientResponse:
+    async def async_get_response_from_post_request(
+        self, endpoint_uri: URI, *args: Any, **kwargs: Any
+    ) -> ClientResponse:
         """
         Performs an async POST request with metrics.
 
@@ -181,9 +219,17 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         Returns:
             ClientResponse: AIOHTTP response.
         """
-        return await self._timed_async_call(super().async_get_response_from_post_request, False, endpoint_uri, *args, **kwargs)
+        return await self._timed_async_call(
+            super().async_get_response_from_post_request,
+            False,
+            endpoint_uri,
+            *args,
+            **kwargs,
+        )
 
-    async def async_get_response_from_post_request_batch(self, endpoint_uri: URI, *args: Any, **kwargs: Any) -> ClientResponse:
+    async def async_get_response_from_post_request_batch(
+        self, endpoint_uri: URI, *args: Any, **kwargs: Any
+    ) -> ClientResponse:
         """
         Performs an async batch POST request with metrics.
 
@@ -195,7 +241,13 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         Returns:
             ClientResponse: AIOHTTP response.
         """
-        return await self._timed_async_call(super().async_get_response_from_post_request, True, endpoint_uri, *args, **kwargs)
+        return await self._timed_async_call(
+            super().async_get_response_from_post_request,
+            True,
+            endpoint_uri,
+            *args,
+            **kwargs,
+        )
 
     def make_post_request_batch(
         self, endpoint_uri: URI, data: Union[bytes, Dict[str, Any]], **kwargs: Any

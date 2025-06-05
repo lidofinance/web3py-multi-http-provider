@@ -18,21 +18,26 @@ _DEFAULT_CHAIN_ID_TO_NAME: Final = {
 
 @dataclasses.dataclass
 class MetricsConfig:
-    namespace: str = ''
-    chain_id_to_name: dict[int, str] = dataclasses.field(default_factory=lambda: _DEFAULT_CHAIN_ID_TO_NAME.copy())
+    namespace: str = ""
+    chain_id_to_name: dict[int, str] = dataclasses.field(
+        default_factory=lambda: _DEFAULT_CHAIN_ID_TO_NAME.copy()
+    )
 
 
 class _DummyMetric:
     def labels(self, *args, **kwargs):
         return self
 
-    def inc(self, *args, **kwargs): pass
+    def inc(self, *args, **kwargs):
+        pass
 
-    def observe(self, *args, **kwargs): pass
+    def observe(self, *args, **kwargs):
+        pass
 
 
 def _init_prometheus_metrics(registry=None):
-    from prometheus_client import Counter, Histogram, REGISTRY
+    from prometheus_client import REGISTRY, Counter, Histogram
+
     kwargs = {"registry": registry or REGISTRY}
     return {
         "Counter": lambda *args, **kw: Counter(*args, **kw, **kwargs),
@@ -63,7 +68,15 @@ def init_metrics(metrics_config: MetricsConfig = MetricsConfig(), registry=None)
     _HTTP_RPC_SERVICE_REQUESTS = counter(
         "http_rpc_requests",
         "Counts total HTTP requests used by any layer (EL, CL, or other).",
-        ["network", "layer", "chain_id", "provider", "batched", "response_code", "result"],
+        [
+            "network",
+            "layer",
+            "chain_id",
+            "provider",
+            "batched",
+            "response_code",
+            "result",
+        ],
         namespace=metrics_config.namespace,
     )
 
@@ -77,7 +90,15 @@ def init_metrics(metrics_config: MetricsConfig = MetricsConfig(), registry=None)
     _RPC_REQUEST = counter(
         "rpc_request",
         "Total number of RPC requests.",
-        ["network", "layer", "chain_id", "provider", "method", "result", "rpc_error_code"],
+        [
+            "network",
+            "layer",
+            "chain_id",
+            "provider",
+            "method",
+            "result",
+            "rpc_error_code",
+        ],
         namespace=metrics_config.namespace,
     )
 

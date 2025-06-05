@@ -12,14 +12,14 @@ from web3_multi_provider.util import normalize_provider
 
 class BeaconProxy(Beacon):
     """
-        A proxy extension of the Web3 `Beacon` client that integrates Prometheus-based
-        metrics collection for GET and POST RPC requests on the consensus layer.
+    A proxy extension of the Web3 `Beacon` client that integrates Prometheus-based
+    metrics collection for GET and POST RPC requests on the consensus layer.
 
-        It tracks:
-        - Number of requests (success/failure)
-        - Request payload sizes (POST)
-        - Response payload sizes (GET & POST)
-        """
+    It tracks:
+    - Number of requests (success/failure)
+    - Request payload sizes (POST)
+    - Response payload sizes (GET & POST)
+    """
 
     def __init__(self, base_url: str, request_timeout: float = 10.0):
         """
@@ -30,19 +30,19 @@ class BeaconProxy(Beacon):
             request_timeout (float, optional): Request timeout in seconds. Defaults to 10.0.
         """
         super().__init__(base_url, request_timeout)
-        self._network = 'ethereum'
-        self._layer = 'cl'
-        self._chain_id = ''
+        self._network = "ethereum"
+        self._layer = "cl"
+        self._chain_id = ""
         self._uri = normalize_provider(self.base_url)
         self._request_session_manager = HTTPSessionManagerProxy(
-            chain_id='',
+            chain_id="",
             uri=normalize_provider(self.base_url),
             network=self._network,
             layer=self._layer,
         )
 
     @override
-    @record_rpc_call('_RPC_REQUEST')
+    @record_rpc_call("_RPC_REQUEST")
     def _make_get_request(
         self, endpoint_url: str, params: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
@@ -67,7 +67,7 @@ class BeaconProxy(Beacon):
         return resp
 
     @override
-    @record_rpc_call('_RPC_REQUEST')
+    @record_rpc_call("_RPC_REQUEST")
     def _make_post_request(
         self, endpoint_url: str, body: Union[List[str], Dict[str, Any]]
     ) -> Dict[str, Any]:
