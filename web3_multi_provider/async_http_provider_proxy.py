@@ -1,6 +1,6 @@
 import logging
 from queue import Empty
-from typing import Any, cast, List, Optional, override, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, cast, override
 
 from eth_typing import URI
 from web3 import AsyncHTTPProvider, JSONBaseProvider
@@ -11,7 +11,12 @@ from web3.types import RPCEndpoint, RPCResponse
 
 import web3_multi_provider.metrics as metrics
 from web3_multi_provider.http_session_manager_proxy import HTTPSessionManagerProxy
-from web3_multi_provider.metrics_decorator import observe_batch_size, observe_input_payload, observe_output_payload, record_rpc_call
+from web3_multi_provider.metrics_decorator import (
+    observe_batch_size,
+    observe_input_payload,
+    observe_output_payload,
+    record_rpc_call,
+)
 from web3_multi_provider.util import normalize_provider
 
 logger = logging.getLogger(__name__)
@@ -35,7 +40,7 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         self,
         endpoint_uri: Optional[Union[URI, str]] = None,
         request_kwargs: Optional[Any] = None,
-        layer: str = 'el',
+        layer: str = "el",
         exception_retry_configuration: Optional[
             Union[ExceptionRetryConfiguration, Empty]
         ] = empty,
@@ -51,9 +56,11 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
             exception_retry_configuration (Optional): Configuration for retry behavior.
             **kwargs: Additional arguments passed to the base class.
         """
-        super().__init__(endpoint_uri, request_kwargs, exception_retry_configuration, **kwargs)
-        self._chain_id: str = ''
-        self._network: str = ''  # to pass fetching of the chain_id
+        super().__init__(
+            endpoint_uri, request_kwargs, exception_retry_configuration, **kwargs
+        )
+        self._chain_id: str = ""
+        self._network: str = ""  # to pass fetching of the chain_id
         self._uri: str = normalize_provider(self.endpoint_uri)
         self._layer = layer
 
@@ -62,15 +69,15 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         Lazily fetches chain ID and maps it to a network name for metric labeling.
         Also sets up the request session manager for batch requests.
         """
-        if self._chain_id != '':
+        if self._chain_id != "":
             return
         self._chain_id = str(await self._fetch_chain_id())
-        self._network = metrics._CHAIN_ID_TO_NAME.get(int(self._chain_id), 'unknown')
+        self._network = metrics._CHAIN_ID_TO_NAME.get(int(self._chain_id), "unknown")
         self._request_session_manager = HTTPSessionManagerProxy(
             chain_id=self._chain_id,
             uri=self._uri,
             network=self._network,
-            layer=self._layer
+            layer=self._layer,
         )
 
     async def _fetch_chain_id(self) -> int:
@@ -84,13 +91,13 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
             RuntimeError: If the call to `eth_chainId` fails.
         """
         try:
-            resp = await super().make_request(RPCEndpoint('eth_chainId'), [])
-            return int(resp['result'], 16)
+            resp = await super().make_request(RPCEndpoint("eth_chainId"), [])
+            return int(resp["result"], 16)
         except Exception as e:
-            raise RuntimeError('Failed to fetch chain ID') from e
+            raise RuntimeError("Failed to fetch chain ID") from e
 
     @override
-    @record_rpc_call('_RPC_REQUEST')
+    @record_rpc_call("_RPC_REQUEST")
     async def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
         """
         Makes an async JSON-RPC request, tagging metrics with status and error code.
@@ -106,7 +113,7 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         return await super().make_request(method, params)
 
     @override
-    @observe_output_payload('_RPC_SERVICE_REQUEST_PAYLOAD_BYTES')
+    @observe_output_payload("_RPC_SERVICE_REQUEST_PAYLOAD_BYTES")
     def encode_rpc_request(self, method: RPCEndpoint, params: Any) -> bytes:
         """
         Encodes a single RPC request into bytes and observes its size.
@@ -121,8 +128,10 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         return super().encode_rpc_request(method, params)
 
     @override
-    @observe_output_payload('_RPC_SERVICE_REQUEST_PAYLOAD_BYTES')
-    def encode_batch_rpc_request(self, requests: List[Tuple[RPCEndpoint, Any]]) -> bytes:
+    @observe_output_payload("_RPC_SERVICE_REQUEST_PAYLOAD_BYTES")
+    def encode_batch_rpc_request(
+        self, requests: List[Tuple[RPCEndpoint, Any]]
+    ) -> bytes:
         """
         Encodes a list of RPC requests into a batch payload and observes size.
 
@@ -135,7 +144,7 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         return super().encode_batch_rpc_request(requests)
 
     @override
-    @observe_input_payload('_RPC_SERVICE_RESPONSE_PAYLOAD_BYTES')
+    @observe_input_payload("_RPC_SERVICE_RESPONSE_PAYLOAD_BYTES")
     def decode_rpc_response(self, raw_response: bytes) -> RPCResponse:
         """
         Decodes a raw byte response into a structured JSON-RPC response and records response size.
@@ -149,7 +158,7 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         return JSONBaseProvider.decode_rpc_response(raw_response)
 
     @override
-    @observe_batch_size('_HTTP_RPC_BATCH_SIZE')
+    @observe_batch_size("_HTTP_RPC_BATCH_SIZE")
     async def make_batch_request(
         self, batch_requests: List[Tuple[RPCEndpoint, Any]]
     ) -> Union[List[RPCResponse], RPCResponse]:
@@ -165,15 +174,13 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         await self._ensure_chain_info_initialized()
         logger.debug(f"Making batch request HTTP - uri: `{self.endpoint_uri}`")
         request_data = self.encode_batch_rpc_request(batch_requests)
-        raw_response = await self._request_session_manager.async_make_post_request_batch(
-            self.endpoint_uri,
-            request_data,
-            **self.get_request_kwargs()
+        raw_response = (
+            await self._request_session_manager.async_make_post_request_batch(
+                self.endpoint_uri, request_data, **self.get_request_kwargs()
+            )
         )
         logger.debug("Received batch response HTTP.")
         response = self.decode_rpc_response(raw_response)
         if not isinstance(response, list):
             return response
-        return sort_batch_response_by_response_ids(
-            cast(List[RPCResponse], response)
-        )
+        return sort_batch_response_by_response_ids(cast(List[RPCResponse], response))

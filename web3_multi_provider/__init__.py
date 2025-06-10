@@ -10,5 +10,5 @@ __all__ = (
     "AsyncMultiProvider",
     "NoActiveProviderError",
     "ProtocolNotSupported",
-    "init_metrics"
+    "init_metrics",
 )

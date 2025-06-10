@@ -7,7 +7,7 @@ from web3.types import RPCEndpoint
 import web3_multi_provider.metrics as metrics
 
 
-def record_rpc_call(metric_name: str = '_RPC_REQUEST'):
+def record_rpc_call(metric_name: str = "_RPC_REQUEST"):
     """
     Decorator that wraps an RPC method (sync or async) to record Prometheus metrics for request outcomes.
 
@@ -23,22 +23,22 @@ def record_rpc_call(metric_name: str = '_RPC_REQUEST'):
         Callable: Wrapped method that records metrics and returns the RPC result.
     """
 
-
     def decorator(fn):
         # Async wrapper
         if inspect.iscoroutinefunction(fn):
+
             @functools.wraps(fn)
             async def async_wrapper(self, method, params=None):
-                status = 'fail'
-                error_code = ''
+                status = "fail"
+                error_code = ""
                 try:
                     result = await fn(self, method, params)
-                    if isinstance(result, dict) and 'error' in result:
-                        err = result['error']
+                    if isinstance(result, dict) and "error" in result:
+                        err = result["error"]
                         if isinstance(err, dict):
-                            error_code = err.get('code', '')
-                    if 'error' not in result:
-                        status = 'success'
+                            error_code = err.get("code", "")
+                    if "error" not in result:
+                        status = "success"
                     return result
                 finally:
                     metric = getattr(metrics, metric_name)
@@ -49,7 +49,7 @@ def record_rpc_call(metric_name: str = '_RPC_REQUEST'):
                         self._uri,
                         method,
                         status,
-                        error_code
+                        error_code,
                     ).inc()
 
             return async_wrapper
@@ -57,16 +57,16 @@ def record_rpc_call(metric_name: str = '_RPC_REQUEST'):
         # Sync wrapper
         @functools.wraps(fn)
         def wrapper(self, method, params=None):
-            status = 'fail'
-            error_code = ''
+            status = "fail"
+            error_code = ""
             try:
                 result = fn(self, method, params)
-                if isinstance(result, dict) and 'error' in result:
-                    err = result['error']
+                if isinstance(result, dict) and "error" in result:
+                    err = result["error"]
                     if isinstance(err, dict):
-                        error_code = err.get('code', '')
-                if 'error' not in result:
-                    status = 'success'
+                        error_code = err.get("code", "")
+                if "error" not in result:
+                    status = "success"
                 return result
             finally:
                 metric = getattr(metrics, metric_name)
@@ -77,7 +77,7 @@ def record_rpc_call(metric_name: str = '_RPC_REQUEST'):
                     self._uri,
                     method,
                     status,
-                    error_code
+                    error_code,
                 ).inc()
 
         return wrapper
@@ -100,6 +100,7 @@ def observe_output_payload(metric_name: str):
 
     def decorator(fn):
         if inspect.iscoroutinefunction(fn):
+
             @functools.wraps(fn)
             async def async_wrapper(self, *args, **kwargs):
                 payload = await fn(self, *args, **kwargs)
@@ -149,7 +150,7 @@ def observe_input_payload(metric_name: str):
     return decorator
 
 
-def observe_batch_size(metric_name: str = '_HTTP_RPC_BATCH_SIZE'):
+def observe_batch_size(metric_name: str = "_HTTP_RPC_BATCH_SIZE"):
     """
     Decorator that observes the number of requests in a batch RPC call (sync or async).
 
@@ -162,17 +163,17 @@ def observe_batch_size(metric_name: str = '_HTTP_RPC_BATCH_SIZE'):
 
     def decorator(fn):
         if inspect.iscoroutinefunction(fn):
+
             @functools.wraps(fn)
-            async def async_wrapper(self, batch_requests: List[Tuple[RPCEndpoint, Any]]):
+            async def async_wrapper(
+                self, batch_requests: List[Tuple[RPCEndpoint, Any]]
+            ):
                 try:
                     return await fn(self, batch_requests)
                 finally:
                     metric = getattr(metrics, metric_name)
                     metric.labels(
-                        self._network,
-                        self._layer,
-                        self._chain_id,
-                        self._uri
+                        self._network, self._layer, self._chain_id, self._uri
                     ).observe(len(batch_requests))
 
             return async_wrapper
@@ -184,10 +185,7 @@ def observe_batch_size(metric_name: str = '_HTTP_RPC_BATCH_SIZE'):
             finally:
                 metric = getattr(metrics, metric_name)
                 metric.labels(
-                    self._network,
-                    self._layer,
-                    self._chain_id,
-                    self._uri
+                    self._network, self._layer, self._chain_id, self._uri
                 ).observe(len(batch_requests))
 
         return wrapper

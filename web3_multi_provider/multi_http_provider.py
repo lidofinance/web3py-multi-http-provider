@@ -26,7 +26,9 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
         endpoint_urls: list[URI | str],
         request_kwargs: Any | None = None,
         session: Any | None = None,
-        exception_retry_configuration: ExceptionRetryConfiguration | Empty | None = empty,
+        exception_retry_configuration: (
+            ExceptionRetryConfiguration | Empty | None
+        ) = empty,
         **kwargs: Any,
     ):
         logger.debug({"msg": f"Initialize {self.__class__.__name__}"})
@@ -74,17 +76,21 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
                 response = provider.make_request(method, params)
             except Exception as error:  # pylint: disable=broad-except
                 exceptions.append(error)
-                logger.warning({
-                    "msg": f"Provider not responding.",
-                    "error": str(error).replace(str(provider.endpoint_uri), "****"),
-                })
+                logger.warning(
+                    {
+                        "msg": f"Provider not responding.",
+                        "error": str(error).replace(str(provider.endpoint_uri), "****"),
+                    }
+                )
             else:
                 sanitize_poa_response(method, response)
-                logger.debug({
-                    "msg": f"Send request using {provider_name}.",
-                    "method": method,
-                    "params": str(params),
-                })
+                logger.debug(
+                    {
+                        "msg": f"Send request using {provider_name}.",
+                        "method": method,
+                        "params": str(params),
+                    }
+                )
                 return response
 
         msg = f"No active provider available in {provider_name}."
