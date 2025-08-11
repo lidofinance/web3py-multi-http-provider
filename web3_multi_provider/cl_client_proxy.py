@@ -32,10 +32,10 @@ class BeaconProxy(Beacon):
         super().__init__(base_url, request_timeout)
         self._network = "ethereum"
         self._layer = "cl"
-        self._chain_id = ""
+        self._chain_id = "beacon"
         self._uri = normalize_provider(self.base_url)
         self._request_session_manager = HTTPSessionManagerProxy(
-            chain_id="",
+            chain_id="beacon",
             uri=normalize_provider(self.base_url),
             network=self._network,
             layer=self._layer,

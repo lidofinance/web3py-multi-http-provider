@@ -10,5 +10,6 @@ __all__ = (
     "AsyncMultiProvider",
     "NoActiveProviderError",
     "ProtocolNotSupported",
+    "HTTPSessionManagerProxy",
     "init_metrics",
 )

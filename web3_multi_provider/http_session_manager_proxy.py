@@ -27,6 +27,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         cache_size: int = 100,
         session_pool_max_workers: int = 5,
         layer: Optional[str] = None,
+        session: Optional[requests.Session] = None,
     ):
         """
         Initialize the session manager and configure monitoring labels.
@@ -44,6 +45,8 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         self._uri = uri
         self._network = network
         self._layer = "unknown" if layer is None else layer
+        if session is not None:
+            self.cache_and_return_session(self._uri, session)
 
     def _timed_call(
         self,
