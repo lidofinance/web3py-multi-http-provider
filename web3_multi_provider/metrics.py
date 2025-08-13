@@ -1,5 +1,12 @@
+"""Prometheus metrics initialization and no-op placeholders.
+
+This module exposes helpers to initialize Prometheus counters/histograms and
+provides dummy metrics for environments where Prometheus isn't configured.
+"""
+
 import dataclasses
-from typing import Final
+from functools import partial
+from typing import Any, Callable, Final
 
 _CHAIN_ID_TO_NAME = {}
 
@@ -20,48 +27,53 @@ _DEFAULT_CHAIN_ID_TO_NAME: Final = {
 class MetricsConfig:
     namespace: str = ""
     chain_id_to_name: dict[int, str] = dataclasses.field(
-        default_factory=lambda: _DEFAULT_CHAIN_ID_TO_NAME.copy()
+        default_factory=_DEFAULT_CHAIN_ID_TO_NAME.copy,
     )
 
 
 class _DummyMetric:
-    def labels(self, *args, **kwargs):
+    """No-op metric used before initialization or in tests."""
+
+    def labels(self, *args: object, **kwargs: object) -> "_DummyMetric":
         return self
 
-    def inc(self, *args, **kwargs):
-        pass
+    def inc(self, *args: object, **kwargs: object) -> None:  # pragma: no cover
+        return None
 
-    def observe(self, *args, **kwargs):
-        pass
+    def observe(self, *args: object, **kwargs: object) -> None:  # pragma: no cover
+        return None
 
 
-def _init_prometheus_metrics(registry=None):
+def _init_prometheus_metrics(registry=None) -> dict[str, Callable[..., Any]]:
+    # Import inside to avoid mandatory dependency at import time
     from prometheus_client import REGISTRY, Counter, Histogram
 
-    kwargs = {"registry": registry or REGISTRY}
+    reg = registry or REGISTRY
     return {
-        "Counter": lambda *args, **kw: Counter(*args, **kw, **kwargs),
-        "Histogram": lambda *args, **kw: Histogram(*args, **kw, **kwargs),
+        "Counter": partial(Counter, registry=reg),
+        "Histogram": partial(Histogram, registry=reg),
     }
 
 
-_HTTP_RPC_SERVICE_REQUESTS = _DummyMetric()
-_HTTP_RPC_BATCH_SIZE = _DummyMetric()
+_HTTP_RPC_SERVICE_REQUESTS: Any = _DummyMetric()
+_HTTP_RPC_BATCH_SIZE: Any = _DummyMetric()
 
-_RPC_REQUEST = _DummyMetric()
-_RPC_SERVICE_RESPONSE_SECONDS = _DummyMetric()
-_RPC_SERVICE_REQUEST_PAYLOAD_BYTES = _DummyMetric()
-_RPC_SERVICE_RESPONSE_PAYLOAD_BYTES = _DummyMetric()
+_RPC_REQUEST: Any = _DummyMetric()
+_RPC_SERVICE_RESPONSE_SECONDS: Any = _DummyMetric()
+_RPC_SERVICE_REQUEST_PAYLOAD_BYTES: Any = _DummyMetric()
+_RPC_SERVICE_RESPONSE_PAYLOAD_BYTES: Any = _DummyMetric()
 
 
-def init_metrics(metrics_config: MetricsConfig = MetricsConfig(), registry=None):
+def init_metrics(
+    metrics_config: MetricsConfig = MetricsConfig(), registry=None
+) -> None:
     _prom = _init_prometheus_metrics(registry)
     global _HTTP_RPC_SERVICE_REQUESTS, _HTTP_RPC_BATCH_SIZE
     global _RPC_REQUEST, _RPC_SERVICE_RESPONSE_SECONDS, _RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES
     global _CHAIN_ID_TO_NAME
 
-    counter = _prom["Counter"]
-    histogram = _prom["Histogram"]
+    counter: Any = _prom["Counter"]
+    histogram: Any = _prom["Histogram"]
 
     _CHAIN_ID_TO_NAME = metrics_config.chain_id_to_name
 
@@ -82,7 +94,10 @@ def init_metrics(metrics_config: MetricsConfig = MetricsConfig(), registry=None)
 
     _HTTP_RPC_BATCH_SIZE = histogram(
         "http_rpc_batch_size",
-        "Distribution of how many JSON-RPC calls (or similar) are bundled in each HTTP request (batch size).",
+        (
+            "Distribution of how many JSON-RPC calls (or similar) are bundled in each "
+            "HTTP request (batch size)."
+        ),
         ["network", "layer", "chain_id", "provider"],
         namespace=metrics_config.namespace,
     )

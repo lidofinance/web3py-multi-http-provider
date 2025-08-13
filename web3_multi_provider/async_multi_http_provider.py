@@ -77,7 +77,7 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
                 exceptions.append(error)
                 logger.warning(
                     {
-                        "msg": f"Provider not responding.",
+                        "msg": "Provider not responding.",
                         "error": str(error).replace(str(provider.endpoint_uri), "****"),
                     }
                 )
@@ -118,4 +118,5 @@ class AsyncFallbackProvider(AsyncBaseMultiProvider):
     """Simple fallback: tries providers in order."""
 
     def get_providers(self) -> Iterable[AsyncHTTPProvider]:
+        """Return providers in order without rotation (fallback)."""
         return iter(self._providers)

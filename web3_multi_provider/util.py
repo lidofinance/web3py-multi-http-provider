@@ -1,6 +1,7 @@
 import logging
 import re
 
+from eth_typing import URI
 from web3._utils.rpc_abi import RPC
 from web3.exceptions import ExtraDataLengthError
 from web3.middleware.proof_of_authority import extradata_to_poa_cleanup
@@ -26,7 +27,7 @@ def sanitize_poa_response(method: RPCEndpoint, response: RPCResponse) -> None:
                 response["result"] = extradata_to_poa_cleanup(response["result"])
 
 
-def normalize_provider(uri: str) -> str:
+def normalize_provider(uri: URI | str) -> str:
     """
     If uri is an IP address returns as is.
     If uri is a dns address returns two highest domains.
@@ -42,5 +43,8 @@ def normalize_provider(uri: str) -> str:
         return ".".join(parts[-2:])
 
     raise ValueError(
-        f"Unhandled hostname format: {uri!r}. Hostname must be either an IP address or a valid provider address."
+        (
+            f"Unhandled hostname format: {uri!r}. "
+            "Hostname must be either an IP address or a valid provider address."
+        )
     )
