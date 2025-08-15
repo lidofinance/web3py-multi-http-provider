@@ -174,7 +174,6 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
     def _timed_call(
         self,
         func: Callable[..., requests.Response],
-        batched: bool,
         *args: Any,
         **kwargs: Any,
     ) -> requests.Response:
@@ -195,6 +194,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         code = "unknown"
         # Optional hint to avoid re-parsing request payloads
         batch_size_hint = kwargs.pop("_batch_size", None)
+        batched = str(batch_size_hint is not None)
         try:
             response = func(*args, **kwargs)
             code = str(response.status_code)
@@ -233,7 +233,6 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
     async def _timed_async_call(
         self,
         func: Callable[..., Awaitable[ClientResponse]],
-        batched: bool,
         *args: Any,
         **kwargs: Any,
     ) -> ClientResponse:
@@ -254,6 +253,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         code = "unknown"
         # Optional hint to avoid re-parsing request payloads
         batch_size_hint = kwargs.pop("_batch_size", None)
+        batched = str(batch_size_hint is not None)
         try:
             response = await func(*args, **kwargs)
             code = str(response.status)
@@ -304,7 +304,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             requests.Response: HTTP response.
         """
         return self._timed_call(
-            super().get_response_from_get_request, False, endpoint_uri, *args, **kwargs
+            super().get_response_from_get_request,
+            endpoint_uri,
+            *args,
+            **kwargs,
         )
 
     def get_response_from_post_request(
@@ -322,25 +325,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             requests.Response: HTTP response.
         """
         return self._timed_call(
-            super().get_response_from_post_request, False, endpoint_uri, *args, **kwargs
-        )
-
-    def get_response_from_post_request_batch(
-        self, endpoint_uri: URI, *args: Any, **kwargs: Any
-    ) -> requests.Response:
-        """
-        Performs a timed POST batch request.
-
-        Args:
-            endpoint_uri (URI): Batch endpoint.
-            *args: Request arguments.
-            **kwargs: Request options.
-
-        Returns:
-            requests.Response: HTTP response.
-        """
-        return self._timed_call(
-            super().get_response_from_post_request, True, endpoint_uri, *args, **kwargs
+            super().get_response_from_post_request,
+            endpoint_uri,
+            *args,
+            **kwargs,
         )
 
     async def async_get_response_from_get_request(
@@ -359,7 +347,6 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         """
         return await self._timed_async_call(
             super().async_get_response_from_get_request,
-            False,
             endpoint_uri,
             *args,
             **kwargs,
@@ -381,225 +368,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         """
         return await self._timed_async_call(
             super().async_get_response_from_post_request,
-            False,
             endpoint_uri,
             *args,
             **kwargs,
         )
-
-    async def async_get_response_from_post_request_batch(
-        self, endpoint_uri: URI, *args: Any, **kwargs: Any
-    ) -> ClientResponse:
-        """
-        Performs an async batch POST request with metrics.
-
-        Args:
-            endpoint_uri (URI): Endpoint URI.
-            *args: Batch args.
-            **kwargs: Keyword args.
-
-        Returns:
-            ClientResponse: AIOHTTP response.
-        """
-        return await self._timed_async_call(
-            super().async_get_response_from_post_request,
-            True,
-            endpoint_uri,
-            *args,
-            **kwargs,
-        )
-
-    def make_post_request_batch(
-        self, endpoint_uri: URI, data: Union[bytes, Dict[str, Any]], **kwargs: Any
-    ) -> bytes:
-        """
-        Submits a batch POST request and returns the response payload.
-
-        Args:
-            endpoint_uri (URI): Target endpoint.
-            data (bytes | Dict[str, Any]): Serialized RPC payload.
-            **kwargs: HTTP options like timeout, stream, etc.
-
-        Returns:
-            bytes: Raw HTTP response content or streaming chunk.
-        """
-        kwargs.setdefault("timeout", DEFAULT_HTTP_TIMEOUT)
-        kwargs.setdefault("stream", False)
-
-        start = time.time()
-        timeout = kwargs["timeout"]
-
-        # Observe request payload size (exact if bytes)
-        try:
-            req_size = (
-                len(data)
-                if isinstance(data, (bytes, bytearray))
-                else sys.getsizeof(data)
-            )
-            metrics._RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels(
-                self._network, self._layer, self._chain_id, self._uri
-            ).observe(req_size)
-        except Exception:
-            pass
-
-        with self.get_response_from_post_request_batch(
-            endpoint_uri, data=data, **kwargs
-        ) as response:
-            response.raise_for_status()
-            if kwargs.get("stream"):
-                resp_bytes = self._handle_streaming_response(response, start, timeout)
-                # Observe exact response payload size for streaming
-                try:
-                    metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES.labels(
-                        self._network, self._layer, self._chain_id, self._uri
-                    ).observe(len(resp_bytes))
-                except Exception:
-                    pass
-                return resp_bytes
-            else:
-                content = response.content
-                # Observe exact response payload size
-                try:
-                    metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES.labels(
-                        self._network, self._layer, self._chain_id, self._uri
-                    ).observe(len(content))
-                except Exception:
-                    pass
-                return content
-
-    async def async_make_post_request_batch(
-        self, endpoint_uri: URI, data: Union[bytes, Dict[str, Any]], **kwargs: Any
-    ) -> bytes:
-        """
-        Asynchronously performs a batch POST request and returns the raw content.
-
-        Args:
-            endpoint_uri (URI): Target endpoint.
-            data (bytes | Dict[str, Any]): RPC payload.
-            **kwargs: Optional arguments passed to the request.
-
-        Returns:
-            bytes: Raw HTTP response content.
-        """
-        # Observe request payload size (exact if bytes)
-        try:
-            req_size = (
-                len(data)
-                if isinstance(data, (bytes, bytearray))
-                else sys.getsizeof(data)
-            )
-            metrics._RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels(
-                self._network, self._layer, self._chain_id, self._uri
-            ).observe(req_size)
-        except Exception:
-            pass
-
-        response = await self.async_get_response_from_post_request_batch(
-            endpoint_uri, data=data, **kwargs
-        )
-        response.raise_for_status()
-        content = await response.read()
-        # Observe exact response payload size
-        try:
-            metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES.labels(
-                self._network, self._layer, self._chain_id, self._uri
-            ).observe(len(content))
-        except Exception:
-            pass
-        return content
-
-    def make_post_request(
-        self, endpoint_uri: URI, data: Union[bytes, Dict[str, Any]], **kwargs: Any
-    ) -> bytes:
-        """
-        Submits a POST request and returns the response payload.
-
-        Args:
-            endpoint_uri (URI): Target endpoint.
-            data (bytes | Dict[str, Any]): Serialized RPC payload.
-            **kwargs: HTTP options like timeout, stream, etc.
-
-        Returns:
-            bytes: Raw HTTP response content or streaming chunk.
-        """
-        kwargs.setdefault("timeout", DEFAULT_HTTP_TIMEOUT)
-        kwargs.setdefault("stream", False)
-
-        start = time.time()
-        timeout = kwargs["timeout"]
-
-        # Observe request payload size (exact if bytes)
-        try:
-            req_size = (
-                len(data)
-                if isinstance(data, (bytes, bytearray))
-                else sys.getsizeof(data)
-            )
-            metrics._RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels(
-                self._network, self._layer, self._chain_id, self._uri
-            ).observe(req_size)
-        except Exception:
-            pass
-
-        with self.get_response_from_post_request(
-            endpoint_uri, data=data, **kwargs
-        ) as response:
-            response.raise_for_status()
-            if kwargs.get("stream"):
-                resp_bytes = self._handle_streaming_response(response, start, timeout)
-                # Observe exact response payload size for streaming
-                try:
-                    metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES.labels(
-                        self._network, self._layer, self._chain_id, self._uri
-                    ).observe(len(resp_bytes))
-                except Exception:
-                    pass
-                return resp_bytes
-            else:
-                content = response.content
-                # Observe exact response payload size
-                try:
-                    metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES.labels(
-                        self._network, self._layer, self._chain_id, self._uri
-                    ).observe(len(content))
-                except Exception:
-                    pass
-                return content
-
-    async def async_make_post_request(
-        self, endpoint_uri: URI, data: Union[bytes, Dict[str, Any]], **kwargs: Any
-    ) -> bytes:
-        """
-        Asynchronously performs a POST request and returns the raw content.
-
-        Args:
-            endpoint_uri (URI): Target endpoint.
-            data (bytes | Dict[str, Any]): RPC payload.
-            **kwargs: Optional arguments passed to the request.
-
-        Returns:
-            bytes: Raw HTTP response content.
-        """
-        # Observe request payload size (exact if bytes)
-        try:
-            req_size = (
-                len(data)
-                if isinstance(data, (bytes, bytearray))
-                else sys.getsizeof(data)
-            )
-            metrics._RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels(
-                self._network, self._layer, self._chain_id, self._uri
-            ).observe(req_size)
-        except Exception:
-            pass
-
-        # Delegate the actual HTTP to the base class to allow external patches/mocks
-        content = await super().async_make_post_request(endpoint_uri, data, **kwargs)
-        # Observe exact response payload size
-        try:
-            metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES.labels(
-                self._network, self._layer, self._chain_id, self._uri
-            ).observe(len(content))
-        except Exception:
-            pass
-        return content

@@ -54,7 +54,7 @@ def http_responses(request):
             if marker and marker.kwargs.get("custom_resp"):
                 cm = mock_response(request.url, marker.kwargs["custom_resp"])
             resp = cm.__enter__()
-            headers = {"Content-Type": "application/json"}
+            headers = {"Content-Type": "application/json", "Content-Length": str(len(resp.content))}
             return resp.status_code, headers, resp.content
 
         responses.add_callback(

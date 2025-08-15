@@ -74,34 +74,6 @@ def test_post_request_records_payload_and_rpc_request_for_el(proxy_el, mock_metr
         mock_metrics.rpc_service_requests.return_value.inc.assert_called()
 
 
-def test_post_batch_records_methods_for_el(proxy_el, mock_metrics):
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.headers = {}
-
-    with patch.object(
-        HTTPSessionManagerProxy.__bases__[0],
-        "get_response_from_post_request",
-        return_value=mock_response,
-    ):
-        response = HTTPSessionManagerProxy.get_response_from_post_request_batch(
-            proxy_el,
-            "https://example.com",
-            json=[
-                {"jsonrpc": "2.0", "method": "eth_chainId", "params": [], "id": 1},
-                {"jsonrpc": "2.0", "method": "eth_getBalance", "params": ["0x..", "latest"], "id": 2},
-            ],
-            _batch_size=2,
-        )
-        assert response == mock_response
-        # at least two increments with different method labels
-        calls = mock_metrics.rpc_service_requests.call_args_list
-        methods = [c.args[4] for c in calls] if calls else []
-        assert "eth_chainId" in methods and "eth_getBalance" in methods
-        # batch size observed exactly
-        mock_metrics.http_rpc_batch_size.return_value.observe.assert_called_with(2)
-
-
 @pytest.mark.asyncio
 async def test_async_post_records_payload_and_rpc_request_for_el(proxy_el, mock_metrics):
     mock_response = AsyncMock()

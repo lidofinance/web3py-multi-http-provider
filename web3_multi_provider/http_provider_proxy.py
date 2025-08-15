@@ -98,30 +98,22 @@ class HTTPProviderProxy(HTTPProvider):
         except Exception as e:
             raise ProviderInitialization("Failed to fetch chain ID") from e
 
-    @override
-    def make_batch_request(self, batch_requests: List[Tuple[RPCEndpoint, Any]]):
-        """
-        Sends a batch of RPC requests and returns sorted results.
-
-        Args:
-            batch_requests (List[Tuple[RPCEndpoint, Any]]): List of RPC method/param tuples.
-
-        Returns:
-            Union[List[RPCResponse], RPCResponse]: Decoded response(s).
-
-        Metrics:
-            - `_HTTP_RPC_BATCH_SIZE`: Observes batch size.
-        """
-        logger.debug("Making batch request HTTP, uri: `%s`", self.endpoint_uri)
+    def make_batch_request(
+        self, batch_requests: List[Tuple[RPCEndpoint, Any]]
+    ) -> Union[List[RPCResponse], RPCResponse]:
+        self.logger.debug(f"Making batch request HTTP, uri: `{self.endpoint_uri}`")
         request_data = self.encode_batch_rpc_request(batch_requests)
-        raw_response = self._request_session_manager.make_post_request_batch(
-            cast(URI, self.endpoint_uri),
-            data=request_data,
+        raw_response = self._request_session_manager.make_post_request(
+            self.endpoint_uri,
+            request_data,
             _batch_size=len(batch_requests),
             **self.get_request_kwargs(),
         )
-        logger.debug("Received batch response HTTP.")
+        self.logger.debug("Received batch response HTTP.")
         response = self.decode_rpc_response(raw_response)
         if not isinstance(response, list):
+            # RPC errors return only one response with the error object
             return response
-        return sort_batch_response_by_response_ids(cast(List[RPCResponse], response))
+        return sort_batch_response_by_response_ids(
+            cast(List[RPCResponse], sort_batch_response_by_response_ids(response))
+        )
