@@ -49,6 +49,7 @@ def test_post_request_records_payload_and_rpc_request_for_el(proxy_el, mock_metr
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.headers = {}
+    mock_response.json = MagicMock(return_value={"error": {"code": "123"}})
 
     with patch.object(
         HTTPSessionManagerProxy.__bases__[0],
@@ -69,7 +70,7 @@ def test_post_request_records_payload_and_rpc_request_for_el(proxy_el, mock_metr
         mock_metrics.rpc_service_request_payload_bytes.assert_called()
         # _RPC_REQUEST emitted with method label
         mock_metrics.rpc_service_requests.assert_called_with(
-            'ethereum', 'el', '1', 'https://node.example', 'eth_chainId', 'success', ''
+            'ethereum', 'el', '1', 'https://node.example', 'eth_chainId', 'success', '123'
         )
         mock_metrics.rpc_service_requests.return_value.inc.assert_called()
 

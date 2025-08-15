@@ -33,7 +33,7 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         self,
         endpoint_uri: Optional[Union[URI, str]] = None,
         request_kwargs: Optional[Any] = None,
-        layer: str = "el",
+        layer: str = "",
         exception_retry_configuration: Optional[
             Union[ExceptionRetryConfiguration, Empty]
         ] = empty,

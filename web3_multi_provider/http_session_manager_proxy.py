@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import sys
 import time
@@ -8,10 +9,12 @@ from urllib.parse import urlparse
 import requests
 from aiohttp import ClientResponse
 from eth_typing import URI
-from web3._utils.http import DEFAULT_HTTP_TIMEOUT
+from responses import logger
 from web3._utils.http_session_manager import HTTPSessionManager
 
 from web3_multi_provider import metrics
+
+logger = logging.getLogger(__name__)
 
 
 class HTTPSessionManagerProxy(HTTPSessionManager):
@@ -75,6 +78,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                 parts.append(seg)
             return "/" + "/".join(parts)
         except Exception:
+            logger.debug("Error normalizing CL path", exc_info=True)
             return None
 
     def _extract_methods(
@@ -108,7 +112,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             elif isinstance(payload, dict) and isinstance(payload.get("method"), str):
                 methods.append(payload["method"])
         except Exception:
-            pass
+            logger.debug("Error extracting methods", exc_info=True)
 
         return methods or None
 
@@ -130,7 +134,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     self._network, self._layer, self._chain_id, self._uri
                 ).observe(size)
         except Exception:
-            pass
+            logger.debug("Error observing request payload", exc_info=True)
 
     def _observe_response_payload_sync(self, response: requests.Response) -> None:
         try:
@@ -141,7 +145,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     self._network, self._layer, self._chain_id, self._uri
                 ).observe(size)
         except Exception:
-            pass
+            logger.debug("Error observing response payload", exc_info=True)
 
     def _observe_response_payload_async(self, response: ClientResponse) -> None:
         try:
@@ -150,10 +154,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     self._network, self._layer, self._chain_id, self._uri
                 ).observe(int(response.content_length))
         except Exception:
-            pass
+            logger.debug("Error observing response payload", exc_info=True)
 
     def _record_rpc_request(
-        self, methods: Optional[List[str]], http_success: str
+        self, methods: Optional[List[str]], http_success: str, error_code: str = ""
     ) -> None:
         try:
             if not methods:
@@ -166,10 +170,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     self._uri,
                     m,
                     http_success,
-                    "",
+                    error_code,
                 ).inc()
         except Exception:
-            pass
+            logger.debug("Error recording RPC request", exc_info=True)
 
     def _timed_call(
         self,
@@ -195,10 +199,13 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         # Optional hint to avoid re-parsing request payloads
         batch_size_hint = kwargs.pop("_batch_size", None)
         batched = str(batch_size_hint is not None)
+        error_code = ""
         try:
             response = func(*args, **kwargs)
             code = str(response.status_code)
             result = "success"
+            if self._layer == "el":
+                error_code = response.json().get("error", {}).get("code", "")
             # Observe response payload size when available
             self._observe_response_payload_sync(response)
             return response
@@ -209,6 +216,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             self._record_rpc_request(
                 self._extract_methods(args[0] if args else None, kwargs),
                 result,
+                error_code,
             )
             metrics._HTTP_RPC_SERVICE_REQUESTS.labels(
                 self._network,
@@ -228,7 +236,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                         self._network, self._layer, self._chain_id, self._uri
                     ).observe(int(batch_size_hint))
                 except Exception:
-                    pass
+                    logger.debug("Error observing batch size", exc_info=True)
 
     async def _timed_async_call(
         self,
@@ -254,6 +262,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         # Optional hint to avoid re-parsing request payloads
         batch_size_hint = kwargs.pop("_batch_size", None)
         batched = str(batch_size_hint is not None)
+        error_code = ""
         try:
             response = await func(*args, **kwargs)
             code = str(response.status)
@@ -268,6 +277,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             self._record_rpc_request(
                 self._extract_methods(args[0] if args else None, kwargs),
                 result,
+                error_code,
             )
             metrics._HTTP_RPC_SERVICE_REQUESTS.labels(
                 self._network,
@@ -287,7 +297,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                         self._network, self._layer, self._chain_id, self._uri
                     ).observe(int(batch_size_hint))
                 except Exception:
-                    pass
+                    logger.debug("Error observing batch size", exc_info=True)
 
     def get_response_from_get_request(
         self, endpoint_uri: URI, *args: Any, **kwargs: Any
