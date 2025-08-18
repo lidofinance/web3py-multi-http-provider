@@ -3,13 +3,12 @@ import logging
 import re
 import sys
 import time
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Union, cast
+from typing import Any, Awaitable, Callable, Dict, List, Optional, cast
 from urllib.parse import urlparse
 
 import requests
 from aiohttp import ClientResponse
 from eth_typing import URI
-from responses import logger
 from web3._utils.http_session_manager import HTTPSessionManager
 
 from web3_multi_provider import metrics
@@ -56,29 +55,135 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             self.cache_and_return_session(cast(URI, self._uri), session)
 
     def _normalize_cl_path(self, endpoint: Optional[str]) -> Optional[str]:
+        """
+        Normalize Beacon API paths using official placeholder patterns.
+
+        Based on https://ethereum.github.io/beacon-APIs/#/ specification.
+        """
         try:
             if not endpoint:
                 return None
             path = urlparse(str(endpoint)).path
             if not path:
                 return None
-            parts: List[str] = []
-            for seg in path.split("/"):
+
+            # Define placeholder mappings based on path context
+            path_segments = [seg for seg in path.split("/") if seg]
+            normalized_segments: List[str] = []
+
+            for i, seg in enumerate(path_segments):
+                # Get context segments
+                prev_seg = path_segments[i - 1] if i > 0 else ""
+                prev2_seg = path_segments[i - 2] if i >= 2 else ""
+
+                # Skip empty segments
                 if not seg:
                     continue
-                if seg.isdigit():
-                    parts.append("{num}")
+
+                # Validator blocks - slot numbers (must come before generic blocks check)
+                if prev_seg == "blocks" and prev2_seg == "validator" and seg.isdigit():
+                    normalized_segments.append("{slot}")
                     continue
-                if seg.startswith("0x") and len(seg) > 10:
-                    parts.append("{hash}")
+
+                # Block identifiers - blocks, blinded_blocks, blob_sidecars
+                elif (
+                    prev_seg in ["blocks", "blinded_blocks", "blob_sidecars"]
+                    or prev2_seg in ["blocks", "blinded_blocks", "blob_sidecars"]
+                    or (prev_seg == "sync_committee" and prev2_seg == "rewards")
+                    or (prev_seg == "rewards" and prev2_seg == "beacon")
+                ) and (
+                    seg.isdigit()
+                    or seg.startswith("0x")
+                    or seg in ["head", "genesis", "finalized"]
+                ):
+                    normalized_segments.append("{block_id}")
                     continue
-                if re.fullmatch(r"[A-Fa-f0-9]{32,}", seg):
-                    parts.append("{hash}")
+
+                # State identifiers - states with slot numbers, state roots, or special values
+                elif (
+                    prev_seg in ["states", "state"] or prev2_seg in ["states", "state"]
+                ) and (
+                    seg.isdigit()
+                    or seg.startswith("0x")
+                    or seg in ["head", "genesis", "finalized"]
+                ):
+                    normalized_segments.append("{state_id}")
                     continue
-                parts.append(seg)
-            return "/" + "/".join(parts)
-        except Exception:
-            logger.debug("Error normalizing CL path", exc_info=True)
+
+                # Block root for light client bootstrap
+                elif (
+                    prev_seg == "bootstrap" and seg.startswith("0x") and len(seg) >= 66
+                ):
+                    normalized_segments.append("{block_root}")
+                    continue
+
+                # Peer identifiers
+                elif prev_seg == "peers":
+                    # Peer IDs can be multiaddr or ENR format
+                    normalized_segments.append("{peer_id}")
+                    continue
+
+                # Epoch numbers - duties, rewards, liveness endpoints (must come before validator check)
+                elif (
+                    prev_seg
+                    in [
+                        "epoch",
+                        "epochs",
+                        "attester",
+                        "proposer",
+                        "sync",
+                        "attestations",
+                        "liveness",
+                    ]
+                    or prev_seg == "duties"
+                ) and seg.isdigit():
+                    normalized_segments.append("{epoch}")
+                    continue
+
+                # Validator identifiers - index, pubkey, or "all"
+                elif (
+                    prev_seg in ["validators", "validator"]
+                    or "validator" in prev_seg
+                    or (prev_seg == "duties" and prev2_seg == "validator")
+                ) and (
+                    seg.isdigit()
+                    or seg.startswith("0x")
+                    or seg == "all"
+                    or re.fullmatch(r"[A-Fa-f0-9]{96}", seg)
+                ):  # 48-byte pubkey
+                    normalized_segments.append("{validator_id}")
+                    continue
+
+                # Slot numbers (general case, validator blocks handled above)
+                elif prev_seg in ["slot", "slots"] and seg.isdigit():
+                    normalized_segments.append("{slot}")
+                    continue
+
+                # Committee indices
+                elif prev_seg == "committees" and seg.isdigit():
+                    normalized_segments.append("{committee_index}")
+                    continue
+
+                # Generic hex hashes/roots (32+ bytes) - for block_root, state_root, etc.
+                elif (
+                    seg.startswith("0x") and len(seg) >= 66
+                ):  # 0x + 64 chars = 32 bytes
+                    normalized_segments.append("{root}")
+                    continue
+
+                # Generic numeric IDs not caught above
+                elif seg.isdigit():
+                    normalized_segments.append("{id}")
+                    continue
+
+                # Keep literal path segments
+                else:
+                    normalized_segments.append(seg)
+
+            return "/" + "/".join(normalized_segments)
+
+        except Exception as e:
+            logger.debug("Error normalizing CL path: %s", e, exc_info=True)
             return None
 
     def _extract_methods(
@@ -198,7 +303,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         code = "unknown"
         # Optional hint to avoid re-parsing request payloads
         batch_size_hint = kwargs.pop("_batch_size", None)
-        batched = str(batch_size_hint is not None)
+        batched = batch_size_hint is not None
         error_code = ""
         try:
             response = func(*args, **kwargs)
@@ -211,6 +316,9 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             return response
         finally:
             duration = time.perf_counter() - start_time
+            metrics._RPC_SERVICE_RESPONSE_SECONDS.labels(
+                self._network, self._layer, self._chain_id, self._uri
+            ).observe(duration)
             # Always record request payload size and RPC request labels regardless of outcome
             self._observe_request_payload(kwargs)
             self._record_rpc_request(
@@ -227,10 +335,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                 code,
                 result,
             ).inc()
-            metrics._RPC_SERVICE_RESPONSE_SECONDS.labels(
-                self._network, self._layer, self._chain_id, self._uri
-            ).observe(duration)
-            if batched and batch_size_hint is not None:
+            if batched:
                 try:
                     metrics._HTTP_RPC_BATCH_SIZE.labels(
                         self._network, self._layer, self._chain_id, self._uri
@@ -261,7 +366,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         code = "unknown"
         # Optional hint to avoid re-parsing request payloads
         batch_size_hint = kwargs.pop("_batch_size", None)
-        batched = str(batch_size_hint is not None)
+        batched = batch_size_hint is not None
         error_code = ""
         try:
             response = await func(*args, **kwargs)
@@ -272,6 +377,9 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             return response
         finally:
             duration = time.perf_counter() - start_time
+            metrics._RPC_SERVICE_RESPONSE_SECONDS.labels(
+                self._network, self._layer, self._chain_id, self._uri
+            ).observe(duration)
             # Always record request payload size and RPC request labels regardless of outcome
             self._observe_request_payload(kwargs)
             self._record_rpc_request(
@@ -288,10 +396,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                 code,
                 result,
             ).inc()
-            metrics._RPC_SERVICE_RESPONSE_SECONDS.labels(
-                self._network, self._layer, self._chain_id, self._uri
-            ).observe(duration)
-            if batched and batch_size_hint is not None:
+            if batched:
                 try:
                     metrics._HTTP_RPC_BATCH_SIZE.labels(
                         self._network, self._layer, self._chain_id, self._uri
