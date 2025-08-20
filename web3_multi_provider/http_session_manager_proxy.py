@@ -94,7 +94,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                 ) and (
                     seg.isdigit()
                     or seg.startswith("0x")
-                    or seg in ["head", "genesis", "finalized"]
+                    or seg in ["head", "genesis", "finalized", "justified"]
                 ):
                     normalized_segments.append("{block_id}")
                     continue
@@ -105,7 +105,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                 ) and (
                     seg.isdigit()
                     or seg.startswith("0x")
-                    or seg in ["head", "genesis", "finalized"]
+                    or seg in ["head", "genesis", "finalized", "justified"]
                 ):
                     normalized_segments.append("{state_id}")
                     continue
@@ -367,6 +367,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         # Optional hint to avoid re-parsing request payloads
         batch_size_hint = kwargs.pop("_batch_size", None)
         batched = batch_size_hint is not None
+        # error code in async calls is not available because of the courutine consumption
         error_code = ""
         try:
             response = await func(*args, **kwargs)
