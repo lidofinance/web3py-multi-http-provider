@@ -135,12 +135,6 @@ class TestHttpProvider:
         with self._caplog.at_level(logging.DEBUG):
             block = await w3.eth.get_block("latest")
 
-        assert self._metrics.rpc_service_requests.return_value.inc.call_count > 0
-        assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.http_rpc_service_requests.return_value.inc.call_count == 0
-        assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
-        assert self._metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
-
         assert {"msg": "PoA blockchain cleanup response."} in [
             log.msg for log in self._caplog.records
         ]

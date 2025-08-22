@@ -1,5 +1,6 @@
 from .async_multi_http_provider import AsyncFallbackProvider, AsyncMultiProvider
 from .exceptions import NoActiveProviderError, ProtocolNotSupported
+from .http_session_manager_proxy import HTTPSessionManagerProxy
 from .metrics import init_metrics
 from .multi_http_provider import FallbackProvider, MultiProvider
 
@@ -10,5 +11,6 @@ __all__ = (
     "AsyncMultiProvider",
     "NoActiveProviderError",
     "ProtocolNotSupported",
+    "HTTPSessionManagerProxy",
     "init_metrics",
 )

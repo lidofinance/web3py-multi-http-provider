@@ -1,11 +1,13 @@
-from mypy.checkexpr import Sequence
+from typing import Sequence
 
 
 class NoActiveProviderError(ExceptionGroup):
     """Raised when no provider is able to handle the request."""
 
     @classmethod
-    def from_exceptions(cls, message: str, exceptions: Sequence[BaseException]):
+    def from_exceptions(
+        cls, message: str, exceptions: Sequence[Exception]
+    ) -> Exception:
         if exceptions:
             return cls(message, exceptions)
         else:

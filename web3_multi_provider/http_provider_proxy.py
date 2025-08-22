@@ -1,23 +1,16 @@
 import logging
-from queue import Empty
 from typing import Any, List, Optional, Tuple, Union, cast, override
 
 from eth_typing import URI
-from web3 import HTTPProvider, JSONBaseProvider
+from web3 import HTTPProvider
 from web3._utils.batching import sort_batch_response_by_response_ids
-from web3._utils.empty import empty
+from web3._utils.empty import Empty, empty
 from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
-import web3_multi_provider.metrics as metrics
+from web3_multi_provider import metrics
 from web3_multi_provider.exceptions import ProviderInitialization
 from web3_multi_provider.http_session_manager_proxy import HTTPSessionManagerProxy
-from web3_multi_provider.metrics_decorator import (
-    observe_batch_size,
-    observe_input_payload,
-    observe_output_payload,
-    record_rpc_call,
-)
 from web3_multi_provider.util import normalize_provider
 
 logger = logging.getLogger(__name__)
@@ -70,21 +63,23 @@ class HTTPProviderProxy(HTTPProvider):
             **kwargs,
         )
         self._layer = layer
-        self._uri = normalize_provider(self.endpoint_uri)
+        self._uri = normalize_provider(str(self.endpoint_uri))
         self._chain_id = ""
         self._network = ""  # to pass fetching of the chain_id
         self._chain_id = str(self._fetch_chain_id())
         self._network = metrics._CHAIN_ID_TO_NAME.get(int(self._chain_id), "unknown")
 
-        self._request_session_manager = HTTPSessionManagerProxy(
-            chain_id=self._chain_id,
-            uri=self._uri,
-            network=self._network,
-            layer=self._layer,
+        self._request_session_manager: HTTPSessionManagerProxy = (
+            HTTPSessionManagerProxy(
+                chain_id=self._chain_id,
+                uri=self._uri,
+                network=self._network,
+                layer=self._layer,
+            )
         )
         if session:
             self._request_session_manager.cache_and_return_session(
-                self.endpoint_uri, session
+                cast(URI, self.endpoint_uri), session
             )
 
     def _fetch_chain_id(self) -> int:
@@ -103,91 +98,22 @@ class HTTPProviderProxy(HTTPProvider):
         except Exception as e:
             raise ProviderInitialization("Failed to fetch chain ID") from e
 
-    @override
-    @record_rpc_call("_RPC_REQUEST")
-    def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
-        """
-        Makes a JSON-RPC request and records request metrics.
-
-        Args:
-            method (RPCEndpoint): RPC method name.
-            params (Any): RPC parameters.
-
-        Returns:
-            RPCResponse: The raw RPC response.
-
-        Metrics:
-            - `_RPC_REQUEST`: Incremented with status and error code (if any).
-        """
-        return super().make_request(method, params)
-
-    @override
-    @observe_output_payload("_RPC_SERVICE_REQUEST_PAYLOAD_BYTES")
-    def encode_rpc_request(self, method: RPCEndpoint, params: Any) -> bytes:
-        """
-        Encodes a single RPC request and observes payload size.
-
-        Args:
-            method (RPCEndpoint): RPC method.
-            params (Any): Parameters for the method.
-
-        Returns:
-            bytes: Encoded request.
-        """
-        return super().encode_rpc_request(method, params)
-
-    @override
-    @observe_output_payload("_RPC_SERVICE_REQUEST_PAYLOAD_BYTES")
-    def encode_batch_rpc_request(
-        self, requests: List[Tuple[RPCEndpoint, Any]]
-    ) -> bytes:
-        """
-        Encodes a batch of RPC requests and observes total payload size.
-
-        Args:
-            requests (List[Tuple[RPCEndpoint, Any]]): List of method/params pairs.
-
-        Returns:
-            bytes: Encoded batch request.
-        """
-        return super().encode_batch_rpc_request(requests)
-
-    @override
-    @observe_input_payload("_RPC_SERVICE_RESPONSE_PAYLOAD_BYTES")
-    def decode_rpc_response(self, raw_response: bytes) -> RPCResponse:
-        """
-        Decodes a raw HTTP response into a parsed RPC result.
-
-        Args:
-            raw_response (bytes): HTTP response content.
-
-        Returns:
-            RPCResponse: Decoded RPC response.
-        """
-        return JSONBaseProvider.decode_rpc_response(raw_response)
-
-    @override
-    @observe_batch_size("_HTTP_RPC_BATCH_SIZE")
-    def make_batch_request(self, batch_requests: List[Tuple[RPCEndpoint, Any]]):
-        """
-        Sends a batch of RPC requests and returns sorted results.
-
-        Args:
-            batch_requests (List[Tuple[RPCEndpoint, Any]]): List of RPC method/param tuples.
-
-        Returns:
-            Union[List[RPCResponse], RPCResponse]: Decoded response(s).
-
-        Metrics:
-            - `_HTTP_RPC_BATCH_SIZE`: Observes batch size.
-        """
-        logger.debug(f"Making batch request HTTP, uri: `{self.endpoint_uri}`")
+    def make_batch_request(
+        self, batch_requests: List[Tuple[RPCEndpoint, Any]]
+    ) -> Union[List[RPCResponse], RPCResponse]:
+        self.logger.debug(f"Making batch request HTTP, uri: `{self.endpoint_uri}`")
         request_data = self.encode_batch_rpc_request(batch_requests)
-        raw_response = self._request_session_manager.make_post_request_batch(
-            self.endpoint_uri, request_data, **self.get_request_kwargs()
+        raw_response = self._request_session_manager.make_post_request(
+            self.endpoint_uri,
+            request_data,
+            _batch_size=len(batch_requests),
+            **self.get_request_kwargs(),
         )
-        logger.debug("Received batch response HTTP.")
+        self.logger.debug("Received batch response HTTP.")
         response = self.decode_rpc_response(raw_response)
         if not isinstance(response, list):
+            # RPC errors return only one response with the error object
             return response
-        return sort_batch_response_by_response_ids(cast(List[RPCResponse], response))
+        return sort_batch_response_by_response_ids(
+            cast(List[RPCResponse], sort_batch_response_by_response_ids(response))
+        )

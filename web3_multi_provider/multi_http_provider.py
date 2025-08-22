@@ -78,7 +78,7 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
                 exceptions.append(error)
                 logger.warning(
                     {
-                        "msg": f"Provider not responding.",
+                        "msg": "Provider not responding.",
                         "error": str(error).replace(str(provider.endpoint_uri), "****"),
                     }
                 )
@@ -110,6 +110,7 @@ class MultiProvider(BaseMultiProvider):
     _current_provider_index: int = 0
 
     def get_providers(self) -> Iterable[HTTPProvider]:
+        """Iterate providers in a round-robin sequence."""
         count = len(self._providers)
         for _ in range(count):
             provider = self._providers[self._current_provider_index]
