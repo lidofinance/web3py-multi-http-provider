@@ -12,6 +12,7 @@ from eth_typing import URI
 from web3._utils.http_session_manager import HTTPSessionManager
 
 from web3_multi_provider import metrics
+from web3_multi_provider.metrics import _DummyMetric
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,120 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
     This proxy logs request counts, response statuses, and response latencies
     using Prometheus metrics for both sync and async GET/POST operations.
     """
+
+    # CL path normalization rules - each rule is a tuple of (condition_func, replacement)
+    # Rules are checked in order, first match wins
+    _CL_PATH_RULES = [
+        # Rule: Validator blocks - slot numbers (must come before generic blocks check)
+        (
+            lambda seg, prev_seg, prev2_seg: (
+                prev_seg == "blocks" and prev2_seg == "validator" and seg.isdigit()
+            ),
+            "{slot}"
+        ),
+        
+        # Rule: Block identifiers - blocks, blinded_blocks, blob_sidecars
+        (
+            lambda seg, prev_seg, prev2_seg: (
+                (
+                    prev_seg in ["blocks", "blinded_blocks", "blob_sidecars"]
+                    or prev2_seg in ["blocks", "blinded_blocks", "blob_sidecars"]
+                    or (prev_seg == "sync_committee" and prev2_seg == "rewards")
+                    or (prev_seg == "rewards" and prev2_seg == "beacon")
+                ) and (
+                    seg.isdigit()
+                    or seg.startswith("0x")
+                    or seg in ["head", "genesis", "finalized", "justified"]
+                )
+            ),
+            "{block_id}"
+        ),
+        
+        # Rule: State identifiers - states with slot numbers, state roots, or special values
+        (
+            lambda seg, prev_seg, prev2_seg: (
+                (prev_seg in ["states", "state"] or prev2_seg in ["states", "state"])
+                and (
+                    seg.isdigit()
+                    or seg.startswith("0x")
+                    or seg in ["head", "genesis", "finalized", "justified"]
+                )
+            ),
+            "{state_id}"
+        ),
+        
+        # Rule: Block root for light client bootstrap
+        (
+            lambda seg, prev_seg, prev2_seg: (
+                prev_seg == "bootstrap" and seg.startswith("0x") and len(seg) >= 66
+            ),
+            "{block_root}"
+        ),
+        
+        # Rule: Peer identifiers
+        (
+            lambda seg, prev_seg, prev2_seg: prev_seg == "peers",
+            "{peer_id}"
+        ),
+        
+        # Rule: Epoch numbers - duties, rewards, liveness endpoints (must come before validator check)
+        (
+            lambda seg, prev_seg, prev2_seg: (
+                prev_seg in [
+                    "epoch", "epochs", "attester", "proposer", "sync", 
+                    "attestations", "liveness", "duties"
+                ] and seg.isdigit()
+            ),
+            "{epoch}"
+        ),
+        
+        # Rule: Validator identifiers - index, pubkey, or "all"
+        (
+            lambda seg, prev_seg, prev2_seg: (
+                (
+                    prev_seg in ["validators", "validator"]
+                    or "validator" in prev_seg
+                    or (prev_seg == "duties" and prev2_seg == "validator")
+                ) and (
+                    seg.isdigit()
+                    or seg.startswith("0x")
+                    or seg == "all"
+                    or re.fullmatch(r"[A-Fa-f0-9]{96}", seg)  # 48-byte pubkey
+                )
+            ),
+            "{validator_id}"
+        ),
+        
+        # Rule: Slot numbers (general case, validator blocks handled above)
+        (
+            lambda seg, prev_seg, prev2_seg: (
+                prev_seg in ["slot", "slots"] and seg.isdigit()
+            ),
+            "{slot}"
+        ),
+        
+        # Rule: Committee indices
+        (
+            lambda seg, prev_seg, prev2_seg: (
+                prev_seg == "committees" and seg.isdigit()
+            ),
+            "{committee_index}"
+        ),
+        
+        # Rule: Generic hex hashes/roots (32+ bytes) - for block_root, state_root, etc.
+        (
+            lambda seg, prev_seg, prev2_seg: (
+                seg.startswith("0x") and len(seg) >= 66  # 0x + 64 chars = 32 bytes
+            ),
+            "{root}"
+        ),
+        
+        # Rule: Generic numeric IDs not caught above
+        (
+            lambda seg, prev_seg, prev2_seg: seg.isdigit(),
+            "{id}"
+        ),
+    ]
 
     def __init__(
         self,
@@ -59,6 +174,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         Normalize Beacon API paths using official placeholder patterns.
 
         Based on https://ethereum.github.io/beacon-APIs/#/ specification.
+        Uses rule-based approach for easy maintenance and extension.
         """
         try:
             if not endpoint:
@@ -80,104 +196,16 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                 if not seg:
                     continue
 
-                # Validator blocks - slot numbers (must come before generic blocks check)
-                if prev_seg == "blocks" and prev2_seg == "validator" and seg.isdigit():
-                    normalized_segments.append("{slot}")
-                    continue
-
-                # Block identifiers - blocks, blinded_blocks, blob_sidecars
-                elif (
-                    prev_seg in ["blocks", "blinded_blocks", "blob_sidecars"]
-                    or prev2_seg in ["blocks", "blinded_blocks", "blob_sidecars"]
-                    or (prev_seg == "sync_committee" and prev2_seg == "rewards")
-                    or (prev_seg == "rewards" and prev2_seg == "beacon")
-                ) and (
-                    seg.isdigit()
-                    or seg.startswith("0x")
-                    or seg in ["head", "genesis", "finalized", "justified"]
-                ):
-                    normalized_segments.append("{block_id}")
-                    continue
-
-                # State identifiers - states with slot numbers, state roots, or special values
-                elif (
-                    prev_seg in ["states", "state"] or prev2_seg in ["states", "state"]
-                ) and (
-                    seg.isdigit()
-                    or seg.startswith("0x")
-                    or seg in ["head", "genesis", "finalized", "justified"]
-                ):
-                    normalized_segments.append("{state_id}")
-                    continue
-
-                # Block root for light client bootstrap
-                elif (
-                    prev_seg == "bootstrap" and seg.startswith("0x") and len(seg) >= 66
-                ):
-                    normalized_segments.append("{block_root}")
-                    continue
-
-                # Peer identifiers
-                elif prev_seg == "peers":
-                    # Peer IDs can be multiaddr or ENR format
-                    normalized_segments.append("{peer_id}")
-                    continue
-
-                # Epoch numbers - duties, rewards, liveness endpoints (must come before validator check)
-                elif (
-                    prev_seg
-                    in [
-                        "epoch",
-                        "epochs",
-                        "attester",
-                        "proposer",
-                        "sync",
-                        "attestations",
-                        "liveness",
-                    ]
-                    or prev_seg == "duties"
-                ) and seg.isdigit():
-                    normalized_segments.append("{epoch}")
-                    continue
-
-                # Validator identifiers - index, pubkey, or "all"
-                elif (
-                    prev_seg in ["validators", "validator"]
-                    or "validator" in prev_seg
-                    or (prev_seg == "duties" and prev2_seg == "validator")
-                ) and (
-                    seg.isdigit()
-                    or seg.startswith("0x")
-                    or seg == "all"
-                    or re.fullmatch(r"[A-Fa-f0-9]{96}", seg)
-                ):  # 48-byte pubkey
-                    normalized_segments.append("{validator_id}")
-                    continue
-
-                # Slot numbers (general case, validator blocks handled above)
-                elif prev_seg in ["slot", "slots"] and seg.isdigit():
-                    normalized_segments.append("{slot}")
-                    continue
-
-                # Committee indices
-                elif prev_seg == "committees" and seg.isdigit():
-                    normalized_segments.append("{committee_index}")
-                    continue
-
-                # Generic hex hashes/roots (32+ bytes) - for block_root, state_root, etc.
-                elif (
-                    seg.startswith("0x") and len(seg) >= 66
-                ):  # 0x + 64 chars = 32 bytes
-                    normalized_segments.append("{root}")
-                    continue
-
-                # Generic numeric IDs not caught above
-                elif seg.isdigit():
-                    normalized_segments.append("{id}")
-                    continue
-
-                # Keep literal path segments
-                else:
+                # Apply normalization rules in order
+                rule_matched = False
+                for condition_func, replacement in self._CL_PATH_RULES:
+                    if condition_func(seg, prev_seg, prev2_seg):
+                        normalized_segments.append(replacement)
+                        rule_matched = True
+                        break
+                
+                # If no rule matched, keep the literal segment
+                if not rule_matched:
                     normalized_segments.append(seg)
 
             return "/" + "/".join(normalized_segments)
@@ -217,7 +245,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             elif isinstance(payload, dict) and isinstance(payload.get("method"), str):
                 methods.append(payload["method"])
         except Exception:
-            logger.debug("Error extracting methods", exc_info=True)
+            if isinstance(metrics._RPC_REQUEST, _DummyMetric):
+                logger.debug("Error extracting methods", exc_info=True)
+            else:
+                logger.warning("Failed to extract methods for RPC request metrics despite metrics being initialized", exc_info=True)
 
         return methods or None
 
@@ -239,7 +270,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     self._network, self._layer, self._chain_id, self._uri
                 ).observe(size)
         except Exception:
-            logger.debug("Error observing request payload", exc_info=True)
+            if isinstance(metrics._RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _DummyMetric):
+                logger.debug("Error observing request payload", exc_info=True)
+            else:
+                logger.warning("Failed to observe request payload size despite metrics being initialized", exc_info=True)
 
     def _observe_response_payload_sync(self, response: requests.Response) -> None:
         try:
@@ -250,7 +284,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     self._network, self._layer, self._chain_id, self._uri
                 ).observe(size)
         except Exception:
-            logger.debug("Error observing response payload", exc_info=True)
+            if isinstance(metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES, _DummyMetric):
+                logger.debug("Error observing response payload", exc_info=True)
+            else:
+                logger.warning("Failed to observe response payload size despite metrics being initialized", exc_info=True)
 
     def _observe_response_payload_async(self, response: ClientResponse) -> None:
         try:
@@ -259,7 +296,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     self._network, self._layer, self._chain_id, self._uri
                 ).observe(int(response.content_length))
         except Exception:
-            logger.debug("Error observing response payload", exc_info=True)
+            if isinstance(metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES, _DummyMetric):
+                logger.debug("Error observing response payload", exc_info=True)
+            else:
+                logger.warning("Failed to observe response payload size despite metrics being initialized", exc_info=True)
 
     def _record_rpc_request(
         self, methods: Optional[List[str]], http_success: str, error_code: str = ""
@@ -278,7 +318,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     error_code,
                 ).inc()
         except Exception:
-            logger.debug("Error recording RPC request", exc_info=True)
+            if isinstance(metrics._RPC_REQUEST, _DummyMetric):
+                logger.debug("Error recording RPC request", exc_info=True)
+            else:
+                logger.warning("Failed to record RPC request despite metrics being initialized", exc_info=True)
 
     def _timed_call(
         self,
@@ -341,7 +384,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                         self._network, self._layer, self._chain_id, self._uri
                     ).observe(int(batch_size_hint))
                 except Exception:
-                    logger.debug("Error observing batch size", exc_info=True)
+                    if isinstance(metrics._HTTP_RPC_BATCH_SIZE, _DummyMetric):
+                        logger.debug("Error observing batch size", exc_info=True)
+                    else:
+                        logger.warning("Failed to observe batch size despite metrics being initialized", exc_info=True)
 
     async def _timed_async_call(
         self,
@@ -403,7 +449,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                         self._network, self._layer, self._chain_id, self._uri
                     ).observe(int(batch_size_hint))
                 except Exception:
-                    logger.debug("Error observing batch size", exc_info=True)
+                    if isinstance(metrics._HTTP_RPC_BATCH_SIZE, _DummyMetric):
+                        logger.debug("Error observing batch size", exc_info=True)
+                    else:
+                        logger.warning("Failed to observe batch size despite metrics being initialized", exc_info=True)
 
     def get_response_from_get_request(
         self, endpoint_uri: URI, *args: Any, **kwargs: Any
