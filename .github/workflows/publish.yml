@@ -7,6 +7,10 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       version: ${{ steps.extract-version.outputs.version }}
 
@@ -32,18 +36,16 @@ jobs:
       - name: Extract version
         id: extract-version
         run: |
-          echo "::set-output name=version::$(poetry version -s)"
+          echo "version=$(poetry version -s)" >> $GITHUB_OUTPUT
 
       - name: Build distribution
         run: |
           poetry build --no-interaction
 
-      - name: Configure PyPI token
-        run: poetry config pypi-token.pypi "${{ secrets.PYPI_TOKEN }}"
-
-      - name: Publish to PyPI
-        run: |
-          poetry publish --no-interaction --no-ansi
+      - name: Publish to PyPI (local vendored action)
+        uses: ./.github/workflows/pypi-publish
+        with:
+          print-hash: true
 
       - name: Success message
         run: echo "ℹ️ Published version ${{ steps.extract-version.outputs.version }} 🎉"
