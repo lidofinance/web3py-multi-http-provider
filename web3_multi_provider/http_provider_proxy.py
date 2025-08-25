@@ -104,7 +104,7 @@ class HTTPProviderProxy(HTTPProvider):
         self.logger.debug(f"Making batch request HTTP, uri: `{self.endpoint_uri}`")
         request_data = self.encode_batch_rpc_request(batch_requests)
         raw_response = self._request_session_manager.make_post_request(
-            self.endpoint_uri,
+            self.endpoint_uri,  # type: ignore
             request_data,
             _batch_size=len(batch_requests),
             **self.get_request_kwargs(),
