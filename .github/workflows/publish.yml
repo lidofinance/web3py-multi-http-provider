@@ -1,8 +1,7 @@
-name: Python package
+name: Publish on release
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  release:
+    types: [published]   # fires when the release is published (stable or pre-release)
 
 jobs:
   publish:
