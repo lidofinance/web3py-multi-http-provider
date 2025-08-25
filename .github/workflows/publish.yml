@@ -7,6 +7,9 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     outputs:
       version: ${{ steps.extract-version.outputs.version }}
 
@@ -32,18 +35,16 @@ jobs:
       - name: Extract version
         id: extract-version
         run: |
-          echo "::set-output name=version::$(poetry version -s)"
+          echo "version=$(poetry version -s)" >> $GITHUB_OUTPUT
 
       - name: Build distribution
         run: |
           poetry build --no-interaction
 
-      - name: Configure PyPI token
-        run: poetry config pypi-token.pypi "${{ secrets.PYPI_TOKEN }}"
-
       - name: Publish to PyPI
-        run: |
-          poetry publish --no-interaction --no-ansi
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
 
       - name: Success message
         run: echo "ℹ️ Published version ${{ steps.extract-version.outputs.version }} 🎉"
