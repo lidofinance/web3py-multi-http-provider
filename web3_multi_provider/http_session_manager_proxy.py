@@ -34,9 +34,8 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             lambda seg, prev_seg, prev2_seg: (
                 prev_seg == "blocks" and prev2_seg == "validator" and seg.isdigit()
             ),
-            "{slot}"
+            "{slot}",
         ),
-        
         # Rule: Block identifiers - blocks, blinded_blocks, blob_sidecars
         (
             lambda seg, prev_seg, prev2_seg: (
@@ -45,15 +44,15 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     or prev2_seg in ["blocks", "blinded_blocks", "blob_sidecars"]
                     or (prev_seg == "sync_committee" and prev2_seg == "rewards")
                     or (prev_seg == "rewards" and prev2_seg == "beacon")
-                ) and (
+                )
+                and (
                     seg.isdigit()
                     or seg.startswith("0x")
                     or seg in ["head", "genesis", "finalized", "justified"]
                 )
             ),
-            "{block_id}"
+            "{block_id}",
         ),
-        
         # Rule: State identifiers - states with slot numbers, state roots, or special values
         (
             lambda seg, prev_seg, prev2_seg: (
@@ -64,34 +63,35 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     or seg in ["head", "genesis", "finalized", "justified"]
                 )
             ),
-            "{state_id}"
+            "{state_id}",
         ),
-        
         # Rule: Block root for light client bootstrap
         (
             lambda seg, prev_seg, prev2_seg: (
                 prev_seg == "bootstrap" and seg.startswith("0x") and len(seg) >= 66
             ),
-            "{block_root}"
+            "{block_root}",
         ),
-        
         # Rule: Peer identifiers
-        (
-            lambda seg, prev_seg, prev2_seg: prev_seg == "peers",
-            "{peer_id}"
-        ),
-        
+        (lambda seg, prev_seg, prev2_seg: prev_seg == "peers", "{peer_id}"),
         # Rule: Epoch numbers - duties, rewards, liveness endpoints (must come before validator check)
         (
             lambda seg, prev_seg, prev2_seg: (
-                prev_seg in [
-                    "epoch", "epochs", "attester", "proposer", "sync", 
-                    "attestations", "liveness", "duties"
-                ] and seg.isdigit()
+                prev_seg
+                in [
+                    "epoch",
+                    "epochs",
+                    "attester",
+                    "proposer",
+                    "sync",
+                    "attestations",
+                    "liveness",
+                    "duties",
+                ]
+                and seg.isdigit()
             ),
-            "{epoch}"
+            "{epoch}",
         ),
-        
         # Rule: Validator identifiers - index, pubkey, or "all"
         (
             lambda seg, prev_seg, prev2_seg: (
@@ -99,45 +99,39 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     prev_seg in ["validators", "validator"]
                     or "validator" in prev_seg
                     or (prev_seg == "duties" and prev2_seg == "validator")
-                ) and (
+                )
+                and (
                     seg.isdigit()
                     or seg.startswith("0x")
                     or seg == "all"
                     or re.fullmatch(r"[A-Fa-f0-9]{96}", seg)  # 48-byte pubkey
                 )
             ),
-            "{validator_id}"
+            "{validator_id}",
         ),
-        
         # Rule: Slot numbers (general case, validator blocks handled above)
         (
             lambda seg, prev_seg, prev2_seg: (
                 prev_seg in ["slot", "slots"] and seg.isdigit()
             ),
-            "{slot}"
+            "{slot}",
         ),
-        
         # Rule: Committee indices
         (
             lambda seg, prev_seg, prev2_seg: (
                 prev_seg == "committees" and seg.isdigit()
             ),
-            "{committee_index}"
+            "{committee_index}",
         ),
-        
         # Rule: Generic hex hashes/roots (32+ bytes) - for block_root, state_root, etc.
         (
             lambda seg, prev_seg, prev2_seg: (
                 seg.startswith("0x") and len(seg) >= 66  # 0x + 64 chars = 32 bytes
             ),
-            "{root}"
+            "{root}",
         ),
-        
         # Rule: Generic numeric IDs not caught above
-        (
-            lambda seg, prev_seg, prev2_seg: seg.isdigit(),
-            "{id}"
-        ),
+        (lambda seg, prev_seg, prev2_seg: seg.isdigit(), "{id}"),
     ]
 
     def __init__(
@@ -203,7 +197,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                         normalized_segments.append(replacement)
                         rule_matched = True
                         break
-                
+
                 # If no rule matched, keep the literal segment
                 if not rule_matched:
                     normalized_segments.append(seg)
@@ -248,7 +242,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             if isinstance(metrics._RPC_REQUEST, _DummyMetric):
                 logger.debug("Error extracting methods", exc_info=True)
             else:
-                logger.warning("Failed to extract methods for RPC request metrics despite metrics being initialized", exc_info=True)
+                logger.warning(
+                    "Failed to extract methods for RPC request metrics despite metrics being initialized",
+                    exc_info=True,
+                )
 
         return methods or None
 
@@ -273,7 +270,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             if isinstance(metrics._RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _DummyMetric):
                 logger.debug("Error observing request payload", exc_info=True)
             else:
-                logger.warning("Failed to observe request payload size despite metrics being initialized", exc_info=True)
+                logger.warning(
+                    "Failed to observe request payload size despite metrics being initialized",
+                    exc_info=True,
+                )
 
     def _observe_response_payload_sync(self, response: requests.Response) -> None:
         try:
@@ -287,7 +287,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             if isinstance(metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES, _DummyMetric):
                 logger.debug("Error observing response payload", exc_info=True)
             else:
-                logger.warning("Failed to observe response payload size despite metrics being initialized", exc_info=True)
+                logger.warning(
+                    "Failed to observe response payload size despite metrics being initialized",
+                    exc_info=True,
+                )
 
     def _observe_response_payload_async(self, response: ClientResponse) -> None:
         try:
@@ -299,7 +302,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             if isinstance(metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES, _DummyMetric):
                 logger.debug("Error observing response payload", exc_info=True)
             else:
-                logger.warning("Failed to observe response payload size despite metrics being initialized", exc_info=True)
+                logger.warning(
+                    "Failed to observe response payload size despite metrics being initialized",
+                    exc_info=True,
+                )
 
     def _record_rpc_request(
         self, methods: Optional[List[str]], http_success: str, error_code: str = ""
@@ -321,7 +327,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
             if isinstance(metrics._RPC_REQUEST, _DummyMetric):
                 logger.debug("Error recording RPC request", exc_info=True)
             else:
-                logger.warning("Failed to record RPC request despite metrics being initialized", exc_info=True)
+                logger.warning(
+                    "Failed to record RPC request despite metrics being initialized",
+                    exc_info=True,
+                )
 
     def _timed_call(
         self,
@@ -387,7 +396,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     if isinstance(metrics._HTTP_RPC_BATCH_SIZE, _DummyMetric):
                         logger.debug("Error observing batch size", exc_info=True)
                     else:
-                        logger.warning("Failed to observe batch size despite metrics being initialized", exc_info=True)
+                        logger.warning(
+                            "Failed to observe batch size despite metrics being initialized",
+                            exc_info=True,
+                        )
 
     async def _timed_async_call(
         self,
@@ -452,7 +464,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     if isinstance(metrics._HTTP_RPC_BATCH_SIZE, _DummyMetric):
                         logger.debug("Error observing batch size", exc_info=True)
                     else:
-                        logger.warning("Failed to observe batch size despite metrics being initialized", exc_info=True)
+                        logger.warning(
+                            "Failed to observe batch size despite metrics being initialized",
+                            exc_info=True,
+                        )
 
     def get_response_from_get_request(
         self, endpoint_uri: URI, *args: Any, **kwargs: Any

@@ -9,7 +9,6 @@ jobs:
     environment: release
     permissions:
       id-token: write
-      contents: read
     outputs:
       version: ${{ steps.extract-version.outputs.version }}
 
@@ -42,9 +41,7 @@ jobs:
           poetry build --no-interaction
 
       - name: Publish to PyPI (local vendored action)
-        uses: ./.github/workflows/pypi-publish
-        with:
-          print-hash: true
+        uses: pypa/gh-action-pypi-publish@d417ba7e7683fa9104c42abe611c1f2c93c0727d
 
       - name: Success message
         run: echo "ℹ️ Published version ${{ steps.extract-version.outputs.version }} 🎉"
