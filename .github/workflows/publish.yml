@@ -1,14 +1,12 @@
-name: Publish on release
+name: Python package
 on:
   release:
-    types: [published]   # fires when the release is published (stable or pre-release)
+    types: [published]   # run when the release is published
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     environment: release
-    permissions:
-      id-token: write
     outputs:
       version: ${{ steps.extract-version.outputs.version }}
 
@@ -34,15 +32,11 @@ jobs:
       - name: Extract version
         id: extract-version
         run: |
-          echo "version=$(poetry version -s)" >> $GITHUB_OUTPUT
+          echo "::set-output name=version::$(poetry version -s)"
 
       - name: Build distribution
         run: |
           poetry build --no-interaction
 
-      - name: Publish to PyPI (local vendored action)
-        uses: pypa/gh-action-pypi-publish@d417ba7e7683fa9104c42abe611c1f2c93c0727d
-
-      - name: Success message
-        run: echo "ℹ️ Published version ${{ steps.extract-version.outputs.version }} 🎉"
-
+      - name: Configure PyPI token
+        run: poetry config pypi-token.pypi "${{ secrets.PYPI_TOKEN }}"
