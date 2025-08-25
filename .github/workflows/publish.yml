@@ -1,8 +1,7 @@
 name: Python package
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  release:
+    types: [published]   # run when the release is published
 
 jobs:
   publish:
