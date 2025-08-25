@@ -9,7 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     permissions:
-      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
+      contents: read
     outputs:
       version: ${{ steps.extract-version.outputs.version }}
 
@@ -41,8 +42,8 @@ jobs:
         run: |
           poetry build --no-interaction
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Publish to PyPI (local vendored action)
+        uses: ./.github/workflows/pypi-publish
         with:
           print-hash: true
 
