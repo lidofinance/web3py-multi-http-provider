@@ -8,6 +8,7 @@ from tests.mocked_requests import mock_async_response, mocked_async_request_poa
 from web3_multi_provider import (
     AsyncFallbackProvider,
     AsyncMultiProvider,
+    ChainIdMismatchError,
     NoActiveProviderError,
     ProtocolNotSupported,
 )
@@ -282,6 +283,49 @@ class TestAsyncFallbackProvider:
         await w3.eth.get_block("latest")
         assert make_post_request.call_count == 2
         assert make_post_request.call_args.args[0] == "http://127.0.0.1:9000"
+
+    @patch(
+        "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    @pytest.mark.asyncio
+    async def test_chain_id_validation_same_chain_ids(self, mock_fetch_chain_id):
+        """Test that validation passes when all providers have the same chain ID."""
+        provider = AsyncFallbackProvider(
+            [
+                "http://127.0.0.1:9001",
+                "http://127.0.0.1:9002",
+            ]
+        )
+
+        provider._providers[0]._chain_id = "1"
+        provider._providers[1]._chain_id = "1"
+
+        provider._validate_chain_ids()
+
+        assert provider._providers[0]._chain_id == "1"
+        assert provider._providers[1]._chain_id == "1"
+
+    @pytest.mark.asyncio
+    async def test_chain_id_validation_different_chain_ids(self):
+        """Test that validation raises ChainIdMismatchError when providers have different chain IDs."""
+        provider = AsyncFallbackProvider(
+            [
+                "http://127.0.0.1:9001",
+                "http://127.0.0.1:9002",
+            ]
+        )
+
+        provider._providers[0]._chain_id = "1"
+        provider._providers[1]._chain_id = "137"
+
+        with pytest.raises(ChainIdMismatchError) as exc_info:
+            provider._validate_chain_ids()
+
+        error_msg = str(exc_info.value).lower()
+        assert "different chain ids" in error_msg
+        assert "1" in str(exc_info.value)
+        assert "137" in str(exc_info.value)
 
     @patch(
         "web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id",

@@ -12,6 +12,7 @@ from web3_multi_provider.multi_http_provider import (
     NoActiveProviderError,
     ProtocolNotSupported,
 )
+from web3_multi_provider.exceptions import ChainIdMismatchError
 
 @patch("web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id", return_value=1)
 def test_protocols_support(mock_fetch_chain_id):
@@ -226,6 +227,51 @@ class TestFallbackProvider:
         assert responses.calls[0].request.url == "http://127.0.0.1:9001/"
         assert responses.calls[1].request.url == "http://127.0.0.1:9002/"
         assert responses.calls[2].request.url == "http://127.0.0.1:9003/"
+
+    @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1
+    )
+    def test_chain_id_validation_same_chain_ids(self, mock_fetch_chain_id, mock_metrics):
+        """Test that validation passes when all providers have the same chain ID."""
+        provider = FallbackProvider(
+            [
+                "http://127.0.0.1:9001",
+                "http://127.0.0.1:9002",
+            ],
+            exception_retry_configuration=None,
+        )
+
+        provider._providers[0]._chain_id = "1"
+        provider._providers[1]._chain_id = "1"
+
+        provider._validate_chain_ids()
+
+        assert provider._providers[0]._chain_id == "1"
+        assert provider._providers[1]._chain_id == "1"
+
+    @responses.activate
+    def test_chain_id_validation_different_chain_ids(self):
+        """Test that validation raises ChainIdMismatchError when providers have different chain IDs."""
+        provider = FallbackProvider(
+            [
+                "http://127.0.0.1:9001",
+                "http://127.0.0.1:9002"
+            ],
+            exception_retry_configuration=None,
+        )
+
+        provider._providers[0]._chain_id = "1"
+        provider._providers[1]._chain_id = "137"
+
+        with pytest.raises(ChainIdMismatchError) as exc_info:
+            provider._validate_chain_ids()
+
+        error_msg = str(exc_info.value).lower()
+        assert "different chain ids" in error_msg
+        assert "1" in str(exc_info.value)
+        assert "137" in str(exc_info.value)
+
 
     @responses.activate
     @patch(
