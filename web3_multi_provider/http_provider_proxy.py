@@ -64,8 +64,8 @@ class HTTPProviderProxy(HTTPProvider):
         self._layer = layer
         self._uri = normalize_provider(str(self.endpoint_uri))
         self._chain_id: str = ""
-        self._network: str = ""  # to pass fetching of the chain_id
-        self._session: Optional[Any] = session  # Store session for later use
+        self._network: str = ""
+        self._session: Optional[Any] = session 
         self._request_session_manager: Optional[HTTPSessionManagerProxy] = None
 
     def _ensure_chain_info_initialized(self) -> None:
