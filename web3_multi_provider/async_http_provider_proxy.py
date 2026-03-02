@@ -87,13 +87,10 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
             int: The current chain ID.
 
         Raises:
-            RuntimeError: If the call to `eth_chainId` fails.
+            Exception: If the call to `eth_chainId` fails (any exception from the RPC call).
         """
-        try:
-            resp = await super().make_request(RPCEndpoint("eth_chainId"), [])
-            return int(resp["result"], 16)
-        except Exception as e:
-            raise RuntimeError("Failed to fetch chain ID") from e
+        resp = await super().make_request(RPCEndpoint("eth_chainId"), [])
+        return int(resp["result"], 16)
 
     async def make_batch_request(
         self, batch_requests: List[Tuple[RPCEndpoint, Any]]

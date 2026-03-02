@@ -50,5 +50,5 @@ async def test_fetch_chain_id_success(proxy):
 async def test_fetch_chain_id_failure(proxy):
     with patch.object(AsyncHTTPProvider, "make_request", new_callable=AsyncMock) as mock_make_request:
         mock_make_request.side_effect = Exception("RPC error")
-        with pytest.raises(RuntimeError, match="Failed to fetch chain ID"):
+        with pytest.raises(Exception, match="RPC error"):
             await proxy._fetch_chain_id()

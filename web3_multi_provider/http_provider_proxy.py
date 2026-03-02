@@ -96,13 +96,10 @@ class HTTPProviderProxy(HTTPProvider):
             int: The chain ID as an integer.
 
         Raises:
-            RuntimeError: If the chain ID could not be retrieved.
+            Exception: If the chain ID could not be retrieved (any exception from the RPC call).
         """
-        try:
-            resp = super().make_request(RPCEndpoint("eth_chainId"), [])
-            return int(resp["result"], 16)
-        except Exception as e:
-            raise RuntimeError("Failed to fetch chain ID") from e
+        resp = super().make_request(RPCEndpoint("eth_chainId"), [])
+        return int(resp["result"], 16)
 
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
         """
