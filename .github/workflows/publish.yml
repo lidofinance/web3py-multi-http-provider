@@ -38,12 +38,8 @@ jobs:
         run: |
           poetry build --no-interaction
 
-      - name: Configure PyPI token
-        run: poetry config pypi-token.pypi "${{ secrets.PYPI_TOKEN }}"
-      
       - name: Publish to PyPI
-        run: |
-          poetry publish --no-interaction --no-ansi
+        uses: pypa/gh-action-pypi-publish@release/v1
 
       - name: Success message
         run: echo "ℹ️ Published version ${{ steps.extract-version.outputs.version }} 🎉"
