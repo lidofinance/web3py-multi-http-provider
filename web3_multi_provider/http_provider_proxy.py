@@ -1,5 +1,5 @@
 import logging
-from typing import Any, List, Optional, Tuple, Union, cast, override
+from typing import Any, List, Optional, Tuple, Union, cast
 
 from eth_typing import URI
 from web3 import HTTPProvider
@@ -9,7 +9,6 @@ from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
 from web3_multi_provider import metrics
-from web3_multi_provider.exceptions import ProviderInitialization
 from web3_multi_provider.http_session_manager_proxy import HTTPSessionManagerProxy
 from web3_multi_provider.util import normalize_provider
 
@@ -44,7 +43,7 @@ class HTTPProviderProxy(HTTPProvider):
         **kwargs: Any,
     ) -> None:
         """
-        Initializes the HTTPProviderProxy instance and fetches the chain ID.
+        Initializes the HTTPProviderProxy instance with lazy chain ID fetching.
 
         Args:
             endpoint_uri (Optional[Union[URI, str]]): URI of the Ethereum node.
@@ -64,22 +63,29 @@ class HTTPProviderProxy(HTTPProvider):
         )
         self._layer = layer
         self._uri = normalize_provider(str(self.endpoint_uri))
-        self._chain_id = ""
-        self._network = ""  # to pass fetching of the chain_id
+        self._chain_id: str = ""
+        self._network: str = ""  # to pass fetching of the chain_id
+        self._session: Optional[Any] = session  # Store session for later use
+        self._request_session_manager: Optional[HTTPSessionManagerProxy] = None
+
+    def _ensure_chain_info_initialized(self) -> None:
+        """
+        Lazily fetches chain ID and maps it to a network name for metric labeling.
+        Also sets up the request session manager for batch requests.
+        """
+        if self._chain_id != "":
+            return
         self._chain_id = str(self._fetch_chain_id())
         self._network = metrics._CHAIN_ID_TO_NAME.get(int(self._chain_id), "unknown")
-
-        self._request_session_manager: HTTPSessionManagerProxy = (
-            HTTPSessionManagerProxy(
-                chain_id=self._chain_id,
-                uri=self._uri,
-                network=self._network,
-                layer=self._layer,
-            )
+        self._request_session_manager = HTTPSessionManagerProxy(
+            chain_id=self._chain_id,
+            uri=self._uri,
+            network=self._network,
+            layer=self._layer,
         )
-        if session:
+        if self._session:
             self._request_session_manager.cache_and_return_session(
-                cast(URI, self.endpoint_uri), session
+                cast(URI, self.endpoint_uri), self._session
             )
 
     def _fetch_chain_id(self) -> int:
@@ -90,17 +96,25 @@ class HTTPProviderProxy(HTTPProvider):
             int: The chain ID as an integer.
 
         Raises:
-            ProviderInitialization: If the chain ID could not be retrieved.
+            RuntimeError: If the chain ID could not be retrieved.
         """
         try:
             resp = super().make_request(RPCEndpoint("eth_chainId"), [])
             return int(resp["result"], 16)
         except Exception as e:
-            raise ProviderInitialization("Failed to fetch chain ID") from e
+            raise RuntimeError("Failed to fetch chain ID") from e
+
+    def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
+        """
+        Makes an RPC request after ensuring chain info is initialized.
+        """
+        self._ensure_chain_info_initialized()
+        return super().make_request(method, params)
 
     def make_batch_request(
         self, batch_requests: List[Tuple[RPCEndpoint, Any]]
     ) -> Union[List[RPCResponse], RPCResponse]:
+        self._ensure_chain_info_initialized()
         self.logger.debug(f"Making batch request HTTP, uri: `{self.endpoint_uri}`")
         request_data = self.encode_batch_rpc_request(batch_requests)
         raw_response = self._request_session_manager.make_post_request(
