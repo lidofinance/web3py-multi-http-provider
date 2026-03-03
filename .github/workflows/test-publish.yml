@@ -47,11 +47,36 @@ jobs:
 
       - name: Get OIDC token and publish to TestPyPI
         env:
-          AUDIENCE: test.pypi.org
+          REPOSITORY_DOMAIN: test.pypi.org
         run: |
-          # Get OIDC token from GitHub Actions
+          # Replicate pypa/gh-action-pypi-publish OIDC flow:
+          # 1. Get audience from PyPI
+          # 2. Get OIDC token from GitHub with that audience
+          # 3. Exchange OIDC token for PyPI API token
+          # 4. Use API token with twine
+          
+          # Step 1: Get audience from PyPI
+          echo "🔄 Getting OIDC audience from PyPI..."
+          AUDIENCE_URL="https://${REPOSITORY_DOMAIN}/_/oidc/audience"
+          AUDIENCE_RESPONSE=$(curl -s "$AUDIENCE_URL")
+          
+          if [ $? -ne 0 ] || [ -z "$AUDIENCE_RESPONSE" ]; then
+            echo "❌ Failed to get audience from PyPI"
+            exit 1
+          fi
+          
+          OIDC_AUDIENCE=$(echo "$AUDIENCE_RESPONSE" | jq -r '.audience')
+          if [ -z "$OIDC_AUDIENCE" ] || [ "$OIDC_AUDIENCE" = "null" ]; then
+            echo "❌ Invalid audience response: $AUDIENCE_RESPONSE"
+            exit 1
+          fi
+          
+          echo "✅ Got OIDC audience: $OIDC_AUDIENCE"
+          
+          # Step 2: Get OIDC token from GitHub Actions with the correct audience
+          echo "🔄 Getting OIDC token from GitHub Actions..."
           OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUDIENCE" | jq -r '.value')
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$OIDC_AUDIENCE" | jq -r '.value')
           
           if [ -z "$OIDC_TOKEN" ] || [ "$OIDC_TOKEN" = "null" ]; then
             echo "❌ Failed to get OIDC token"
@@ -60,96 +85,103 @@ jobs:
           
           echo "✅ OIDC token obtained (length: ${#OIDC_TOKEN})"
           
-          # Export OIDC_TOKEN so Python script can access it
+          # Step 3: Exchange OIDC token for PyPI API token
+          echo "🔄 Exchanging OIDC token for PyPI API token..."
+          TOKEN_EXCHANGE_URL="https://${REPOSITORY_DOMAIN}/_/oidc/mint-token"
+          
+          # Export for Python script
           export OIDC_TOKEN
+          export TOKEN_EXCHANGE_URL
           
           # Install dependencies
-          pip install twine requests requests-toolbelt
+          pip install twine requests
           
-          # The issue: PyPI trusted publishing doesn't work with twine's basic auth
-          # We need to use the OIDC token properly. Since pypa/gh-action-pypi-publish
-          # is not available, we'll use a workaround: create a temporary API token
-          # or use requests library directly with OIDC Bearer token
-          
-          # Try using requests library to upload with OIDC token as Bearer token
+          # Exchange token and upload
           python3 << 'PYTHON_SCRIPT'
           import os
           import sys
+          import subprocess
           import requests
           from pathlib import Path
-          from requests_toolbelt.multipart.encoder import MultipartEncoder
           
           oidc_token = os.environ.get('OIDC_TOKEN')
+          token_exchange_url = os.environ.get('TOKEN_EXCHANGE_URL')
+          repository_url = "https://test.pypi.org/legacy/"
+          
           if not oidc_token:
               print("❌ OIDC token not found")
               sys.exit(1)
           
-          repository_url = "https://test.pypi.org/legacy/"
-          dist_dir = Path("dist")
+          # Exchange OIDC token for PyPI API token (replicating pypa action)
+          print(f"📤 Exchanging OIDC token at {token_exchange_url}...")
+          try:
+              mint_token_resp = requests.post(
+                  token_exchange_url,
+                  json={'token': oidc_token},
+                  timeout=5
+              )
+              
+              if not mint_token_resp.ok:
+                  try:
+                      error_payload = mint_token_resp.json()
+                      errors = error_payload.get('errors', [])
+                      error_messages = '\n'.join(
+                          f"  - {err.get('code', 'unknown')}: {err.get('description', 'no description')}"
+                          for err in errors
+                      )
+                      print(f"❌ Token exchange failed:")
+                      print(error_messages)
+                      print("\n💡 This usually means:")
+                      print("   - Trusted publisher configuration doesn't match")
+                      print("   - Repository, workflow, or environment name mismatch")
+                      print("   - Project name mismatch")
+                  except:
+                      print(f"❌ Token exchange failed: HTTP {mint_token_resp.status_code}")
+                      print(f"Response: {mint_token_resp.text[:500]}")
+                  sys.exit(1)
+              
+              mint_token_payload = mint_token_resp.json()
+              pypi_token = mint_token_payload.get('token')
+              
+              if not pypi_token:
+                  print("❌ Token exchange response missing 'token' field")
+                  print(f"Response: {mint_token_payload}")
+                  sys.exit(1)
+              
+              print("✅ Successfully exchanged OIDC token for PyPI API token")
+              
+          except requests.exceptions.RequestException as e:
+              print(f"❌ Token exchange request failed: {e}")
+              sys.exit(1)
+          except Exception as e:
+              print(f"❌ Unexpected error during token exchange: {e}")
+              sys.exit(1)
           
-          # Get all distribution files
+          # Step 4: Use the API token with twine
+          print("📤 Uploading packages with twine...")
+          dist_dir = Path("dist")
           dist_files = list(dist_dir.glob("*"))
+          
           if not dist_files:
               print("❌ No distribution files found in dist/")
               sys.exit(1)
           
-          print(f"📦 Found {len(dist_files)} distribution file(s)")
+          os.environ['TWINE_USERNAME'] = '__token__'
+          os.environ['TWINE_PASSWORD'] = pypi_token
           
-          # Upload each file using OIDC token as Bearer token
-          for dist_file in dist_files:
-              print(f"📤 Uploading {dist_file.name}...")
-              
-              # Read file content
-              with open(dist_file, 'rb') as f:
-                  file_content = f.read()
-              
-              # Extract package name (web3_multi_provider-2.2.2-py3-none-any.whl -> web3_multi_provider)
-              package_name = dist_file.stem.split('-')[0]
-              
-              # Create multipart form data (matching twine's format)
-              fields = {
-                  ':action': 'file_upload',
-                  'name': package_name,
-                  'content': (dist_file.name, file_content, 'application/octet-stream'),
-              }
-              
-              encoder = MultipartEncoder(fields=fields)
-              
-              # Use OIDC token as Bearer token (PyPI trusted publishing format)
-              headers = {
-                  'Authorization': f'Bearer {oidc_token}',
-                  'Content-Type': encoder.content_type,
-              }
-              
-              try:
-                  response = requests.post(
-                      repository_url,
-                      data=encoder,
-                      headers=headers,
-                      allow_redirects=False,
-                      timeout=120
-                  )
-                  
-                  if response.status_code in [200, 201]:
-                      print(f"✅ Successfully uploaded {dist_file.name}")
-                  elif response.status_code == 403:
-                      print(f"❌ 403 Forbidden for {dist_file.name}")
-                      print(f"Response headers: {dict(response.headers)}")
-                      print(f"Response body: {response.text[:1000]}")
-                      print("\n💡 Troubleshooting:")
-                      print("   - Verify trusted publisher is active (not pending)")
-                      print("   - Check that project name matches: web3_multi_provider")
-                      print("   - Ensure repository, workflow, and environment match exactly")
-                      sys.exit(1)
-                  else:
-                      print(f"❌ Failed to upload {dist_file.name}: HTTP {response.status_code}")
-                      print(f"Response: {response.text[:500]}")
-                      sys.exit(1)
-              except Exception as e:
-                  print(f"❌ Error uploading {dist_file.name}: {e}")
-                  sys.exit(1)
+          result = subprocess.run([
+              'twine', 'upload',
+              '--repository-url', repository_url,
+              '--skip-existing',
+              '--verbose'
+          ] + [str(f) for f in dist_files],
+          capture_output=True, text=True)
           
-          print("✅ All files uploaded successfully")
+          print(result.stdout)
+          if result.stderr:
+              print(result.stderr, file=sys.stderr)
+          
+          sys.exit(result.returncode)
           PYTHON_SCRIPT
 
       - name: Success message
