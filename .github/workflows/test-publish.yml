@@ -60,6 +60,9 @@ jobs:
           
           echo "✅ OIDC token obtained (length: ${#OIDC_TOKEN})"
           
+          # Export OIDC_TOKEN so Python script can access it
+          export OIDC_TOKEN
+          
           # Install dependencies
           pip install twine requests requests-toolbelt
           
