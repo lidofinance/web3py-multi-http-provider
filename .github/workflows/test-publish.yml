@@ -35,16 +35,21 @@ jobs:
         id: extract-version
         run: |
           BASE_VERSION=$(poetry version -s)
-          # For test publishes, append commit SHA to make each commit publish a unique version
-          COMMIT_SHA=$(git rev-parse --short HEAD)
-          TEST_VERSION="${BASE_VERSION}+test.${COMMIT_SHA}"
+          # For test publishes, use dev version with a unique number per commit
+          # PyPI doesn't allow local versions (with +), so we use .devN format
+          # Use epoch seconds as dev number for uniqueness (modulo to keep it reasonable)
+          TIMESTAMP=$(date +%s)
+          DEV_NUMBER=$((TIMESTAMP % 10000000))  # Keep it under 10 million
+          # Use dev version format: 2.2.2 -> 2.2.3.dev1234567 (increment patch, add dev number)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
+          TEST_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1)).dev${DEV_NUMBER}"
           echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
           echo "version=$TEST_VERSION" >> $GITHUB_OUTPUT
           echo "test_version=$TEST_VERSION" >> $GITHUB_OUTPUT
 
       - name: Set test version
         run: |
-          # Temporarily set version with commit SHA for test publish
+          # Temporarily set version with dev version + commit SHA for test publish
           poetry version ${{ steps.extract-version.outputs.test_version }}
 
       - name: Build distribution
