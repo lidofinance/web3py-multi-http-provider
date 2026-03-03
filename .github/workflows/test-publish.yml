@@ -34,7 +34,18 @@ jobs:
       - name: Extract version
         id: extract-version
         run: |
-          echo "version=$(poetry version -s)" >> $GITHUB_OUTPUT
+          BASE_VERSION=$(poetry version -s)
+          # For test publishes, append commit SHA to make each commit publish a unique version
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          TEST_VERSION="${BASE_VERSION}+test.${COMMIT_SHA}"
+          echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
+          echo "version=$TEST_VERSION" >> $GITHUB_OUTPUT
+          echo "test_version=$TEST_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set test version
+        run: |
+          # Temporarily set version with commit SHA for test publish
+          poetry version ${{ steps.extract-version.outputs.test_version }}
 
       - name: Build distribution
         run: |
@@ -54,9 +65,9 @@ jobs:
           pip install twine requests
           
           # Exchange token and upload using shared script
+          # No --skip-existing needed since each commit has a unique version
           python3 .github/scripts/pypi_oidc_upload.py \
-            --repository-url "https://test.pypi.org/legacy/" \
-            --skip-existing
+            --repository-url "https://test.pypi.org/legacy/"
 
       - name: Success message
         run: echo "ℹ️ Test publish completed for version ${{ steps.extract-version.outputs.version }} 🎉"
