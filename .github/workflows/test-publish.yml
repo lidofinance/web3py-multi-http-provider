@@ -45,13 +45,20 @@ jobs:
           ls -la dist/
           echo "✅ Distributions built successfully"
 
-      - name: Test PyPI publish (dry-run check)
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          skip-existing: true
-          print-hash: true
-          verbose: true
+      - name: Get OIDC token and publish to TestPyPI
+        env:
+          AUDIENCE: test.pypi.org
+        run: |
+          # Get OIDC token from GitHub Actions
+          OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUDIENCE" | jq -r '.value')
+          
+          # Install twine
+          pip install twine
+          
+          # Publish using OIDC token (TestPyPI trusted publishing accepts OIDC tokens directly)
+          TWINE_USERNAME=__token__ TWINE_PASSWORD="$OIDC_TOKEN" \
+            twine upload --repository-url https://test.pypi.org/legacy/ --skip-existing dist/*
 
       - name: Success message
         run: echo "ℹ️ Test publish completed for version ${{ steps.extract-version.outputs.version }} 🎉"

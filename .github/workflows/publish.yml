@@ -41,8 +41,20 @@ jobs:
         run: |
           poetry build --no-interaction
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Get OIDC token and publish to PyPI
+        env:
+          AUDIENCE: pypi.org
+        run: |
+          # Get OIDC token from GitHub Actions
+          OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUDIENCE" | jq -r '.value')
+          
+          # Install twine
+          pip install twine
+          
+          # Publish using OIDC token (PyPI trusted publishing accepts OIDC tokens directly)
+          TWINE_USERNAME=__token__ TWINE_PASSWORD="$OIDC_TOKEN" \
+            twine upload --repository-url https://upload.pypi.org/legacy/ dist/*
 
       - name: Success message
         run: echo "ℹ️ Published version ${{ steps.extract-version.outputs.version }} 🎉"
