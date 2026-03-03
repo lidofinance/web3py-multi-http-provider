@@ -1,18 +1,17 @@
-name: Python package
+name: Test PyPI Publishing
 on:
-  release:
-    types: [published]   # run when the release is published
+  workflow_dispatch:
+  pull_request:
+  push:
 
 jobs:
-  publish:
+  test-publish:
     runs-on: ubuntu-latest
-    environment: release
+    environment: testpypi
     permissions:
       id-token: write
-      contents: read 
-    outputs:
-      version: ${{ steps.extract-version.outputs.version }}
-
+      contents: read
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -41,8 +40,18 @@ jobs:
         run: |
           poetry build --no-interaction
 
-      - name: Publish to PyPI
+      - name: Check if distributions exist
+        run: |
+          ls -la dist/
+          echo "✅ Distributions built successfully"
+
+      - name: Test PyPI publish (dry-run check)
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+          print-hash: true
+          verbose: true
 
       - name: Success message
-        run: echo "ℹ️ Published version ${{ steps.extract-version.outputs.version }} 🎉"
+        run: echo "ℹ️ Test publish completed for version ${{ steps.extract-version.outputs.version }} 🎉"
