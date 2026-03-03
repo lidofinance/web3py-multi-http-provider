@@ -53,12 +53,18 @@ jobs:
           OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUDIENCE" | jq -r '.value')
           
+          if [ -z "$OIDC_TOKEN" ] || [ "$OIDC_TOKEN" = "null" ]; then
+            echo "❌ Failed to get OIDC token"
+            exit 1
+          fi
+          
+          echo "✅ OIDC token obtained (length: ${#OIDC_TOKEN})"
+          
           # Install twine
           pip install twine
           
-          # Publish using OIDC token (TestPyPI trusted publishing accepts OIDC tokens directly)
           TWINE_USERNAME=__token__ TWINE_PASSWORD="$OIDC_TOKEN" \
-            twine upload --repository-url https://test.pypi.org/legacy/ --skip-existing dist/*
+            twine upload --repository-url https://test.pypi.org/legacy/ --skip-existing --verbose dist/*
 
       - name: Success message
         run: echo "ℹ️ Test publish completed for version ${{ steps.extract-version.outputs.version }} 🎉"
