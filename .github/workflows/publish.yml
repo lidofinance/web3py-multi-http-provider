@@ -42,142 +42,16 @@ jobs:
           poetry build --no-interaction
 
       - name: Get OIDC token and publish to PyPI
-        env:
-          REPOSITORY_DOMAIN: pypi.org
         run: |
-          # Replicate pypa/gh-action-pypi-publish OIDC flow:
-          # 1. Get audience from PyPI
-          # 2. Get OIDC token from GitHub with that audience
-          # 3. Exchange OIDC token for PyPI API token
-          # 4. Use API token with twine
-          
-          # Step 1: Get audience from PyPI
-          echo "🔄 Getting OIDC audience from PyPI..."
-          AUDIENCE_URL="https://${REPOSITORY_DOMAIN}/_/oidc/audience"
-          AUDIENCE_RESPONSE=$(curl -s "$AUDIENCE_URL")
-          
-          if [ $? -ne 0 ] || [ -z "$AUDIENCE_RESPONSE" ]; then
-            echo "❌ Failed to get audience from PyPI"
-            exit 1
-          fi
-          
-          OIDC_AUDIENCE=$(echo "$AUDIENCE_RESPONSE" | jq -r '.audience')
-          if [ -z "$OIDC_AUDIENCE" ] || [ "$OIDC_AUDIENCE" = "null" ]; then
-            echo "❌ Invalid audience response: $AUDIENCE_RESPONSE"
-            exit 1
-          fi
-          
-          echo "✅ Got OIDC audience: $OIDC_AUDIENCE"
-          
-          # Step 2: Get OIDC token from GitHub Actions with the correct audience
-          echo "🔄 Getting OIDC token from GitHub Actions..."
-          OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$OIDC_AUDIENCE" | jq -r '.value')
-          
-          if [ -z "$OIDC_TOKEN" ] || [ "$OIDC_TOKEN" = "null" ]; then
-            echo "❌ Failed to get OIDC token"
-            exit 1
-          fi
-          
-          echo "✅ OIDC token obtained (length: ${#OIDC_TOKEN})"
-          
-          # Step 3: Exchange OIDC token for PyPI API token
-          echo "🔄 Exchanging OIDC token for PyPI API token..."
-          TOKEN_EXCHANGE_URL="https://${REPOSITORY_DOMAIN}/_/oidc/mint-token"
-          
-          # Export for Python script
-          export OIDC_TOKEN
-          export TOKEN_EXCHANGE_URL
+          # Setup OIDC token (sets OIDC_TOKEN and TOKEN_EXCHANGE_URL environment variables)
+          source .github/scripts/setup_oidc_token.sh pypi.org
           
           # Install dependencies
           pip install twine requests
           
-          # Exchange token and upload
-          python3 << 'PYTHON_SCRIPT'
-          import os
-          import sys
-          import subprocess
-          import requests
-          from pathlib import Path
-          
-          oidc_token = os.environ.get('OIDC_TOKEN')
-          token_exchange_url = os.environ.get('TOKEN_EXCHANGE_URL')
-          repository_url = "https://upload.pypi.org/legacy/"
-          
-          if not oidc_token:
-              print("❌ OIDC token not found")
-              sys.exit(1)
-          
-          # Exchange OIDC token for PyPI API token (replicating pypa action)
-          print(f"📤 Exchanging OIDC token at {token_exchange_url}...")
-          try:
-              mint_token_resp = requests.post(
-                  token_exchange_url,
-                  json={'token': oidc_token},
-                  timeout=5
-              )
-              
-              if not mint_token_resp.ok:
-                  try:
-                      error_payload = mint_token_resp.json()
-                      errors = error_payload.get('errors', [])
-                      error_messages = '\n'.join(
-                          f"  - {err.get('code', 'unknown')}: {err.get('description', 'no description')}"
-                          for err in errors
-                      )
-                      print(f"❌ Token exchange failed:")
-                      print(error_messages)
-                      print("\n💡 This usually means:")
-                      print("   - Trusted publisher configuration doesn't match")
-                      print("   - Repository, workflow, or environment name mismatch")
-                      print("   - Project name mismatch")
-                  except:
-                      print(f"❌ Token exchange failed: HTTP {mint_token_resp.status_code}")
-                      print(f"Response: {mint_token_resp.text[:500]}")
-                  sys.exit(1)
-              
-              mint_token_payload = mint_token_resp.json()
-              pypi_token = mint_token_payload.get('token')
-              
-              if not pypi_token:
-                  print("❌ Token exchange response missing 'token' field")
-                  print(f"Response: {mint_token_payload}")
-                  sys.exit(1)
-              
-              print("✅ Successfully exchanged OIDC token for PyPI API token")
-              
-          except requests.exceptions.RequestException as e:
-              print(f"❌ Token exchange request failed: {e}")
-              sys.exit(1)
-          except Exception as e:
-              print(f"❌ Unexpected error during token exchange: {e}")
-              sys.exit(1)
-          
-          # Step 4: Use the API token with twine
-          print("📤 Uploading packages with twine...")
-          dist_dir = Path("dist")
-          dist_files = list(dist_dir.glob("*"))
-          
-          if not dist_files:
-              print("❌ No distribution files found in dist/")
-              sys.exit(1)
-          
-          os.environ['TWINE_USERNAME'] = '__token__'
-          os.environ['TWINE_PASSWORD'] = pypi_token
-          
-          result = subprocess.run([
-              'twine', 'upload',
-              '--repository-url', repository_url,
-              '--verbose'
-          ] + [str(f) for f in dist_files],
-          capture_output=True, text=True)
-          
-          print(result.stdout)
-          if result.stderr:
-              print(result.stderr, file=sys.stderr)
-          
-          sys.exit(result.returncode)
-          PYTHON_SCRIPT
+          # Exchange token and upload using shared script
+          python3 .github/scripts/pypi_oidc_upload.py \
+            --repository-url "https://upload.pypi.org/legacy/"
 
       - name: Success message
         run: echo "ℹ️ Published version ${{ steps.extract-version.outputs.version }} 🎉"
