@@ -22,3 +22,7 @@ class ProtocolNotSupported(Exception):
 
 class ProviderInitialization(Exception):
     """Error during provider init"""
+
+
+class ChainIdMismatchError(Exception):
+    """Raised when providers in a multi-provider have different chain IDs."""

@@ -9,7 +9,11 @@ from web3.providers import JSONBaseProvider
 from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
-from web3_multi_provider.exceptions import NoActiveProviderError, ProtocolNotSupported
+from web3_multi_provider.exceptions import (
+    ChainIdMismatchError,
+    NoActiveProviderError,
+    ProtocolNotSupported,
+)
 from web3_multi_provider.http_provider_proxy import HTTPProviderProxy
 from web3_multi_provider.util import sanitize_poa_response
 
@@ -54,13 +58,42 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
 
         super().__init__()
 
+    def _validate_chain_ids(self) -> None:
+        """
+        Validates that all providers have the same chain ID.
+        
+        Raises:
+            ChainIdMismatchError: If providers have different chain IDs.
+        """
+        chain_ids: dict[str, list[str]] = {}
+        
+        for provider in self._providers:
+            if hasattr(provider, "_chain_id") and provider._chain_id:
+                chain_id = provider._chain_id
+                endpoint_uri = str(provider.endpoint_uri)
+                
+                if chain_id not in chain_ids:
+                    chain_ids[chain_id] = []
+                chain_ids[chain_id].append(endpoint_uri)
+        
+        if len(chain_ids) > 1:
+            mismatches = []
+            for chain_id, endpoints in chain_ids.items():
+                mismatches.append(f"Chain ID {chain_id}: {', '.join(endpoints)}")
+            
+            raise ChainIdMismatchError(
+                f"Providers have different chain IDs:\n" + "\n".join(mismatches)
+            )
+
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
-        return self._make_request_with_failover(
+        response = self._make_request_with_failover(
             method=method,
             params=params,
             provider_name=self.__class__.__name__,
             provider_iter=self.get_providers(),
         )
+        self._validate_chain_ids()
+        return response
 
     @staticmethod
     def _make_request_with_failover(
