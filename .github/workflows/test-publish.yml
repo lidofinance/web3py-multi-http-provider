@@ -60,11 +60,94 @@ jobs:
           
           echo "✅ OIDC token obtained (length: ${#OIDC_TOKEN})"
           
-          # Install twine
-          pip install twine
+          # Install dependencies
+          pip install twine requests requests-toolbelt
           
-          TWINE_USERNAME=__token__ TWINE_PASSWORD="$OIDC_TOKEN" \
-            twine upload --repository-url https://test.pypi.org/legacy/ --skip-existing --verbose dist/*
+          # The issue: PyPI trusted publishing doesn't work with twine's basic auth
+          # We need to use the OIDC token properly. Since pypa/gh-action-pypi-publish
+          # is not available, we'll use a workaround: create a temporary API token
+          # or use requests library directly with OIDC Bearer token
+          
+          # Try using requests library to upload with OIDC token as Bearer token
+          python3 << 'PYTHON_SCRIPT'
+          import os
+          import sys
+          import requests
+          from pathlib import Path
+          from requests_toolbelt.multipart.encoder import MultipartEncoder
+          
+          oidc_token = os.environ.get('OIDC_TOKEN')
+          if not oidc_token:
+              print("❌ OIDC token not found")
+              sys.exit(1)
+          
+          repository_url = "https://test.pypi.org/legacy/"
+          dist_dir = Path("dist")
+          
+          # Get all distribution files
+          dist_files = list(dist_dir.glob("*"))
+          if not dist_files:
+              print("❌ No distribution files found in dist/")
+              sys.exit(1)
+          
+          print(f"📦 Found {len(dist_files)} distribution file(s)")
+          
+          # Upload each file using OIDC token as Bearer token
+          for dist_file in dist_files:
+              print(f"📤 Uploading {dist_file.name}...")
+              
+              # Read file content
+              with open(dist_file, 'rb') as f:
+                  file_content = f.read()
+              
+              # Extract package name (web3_multi_provider-2.2.2-py3-none-any.whl -> web3_multi_provider)
+              package_name = dist_file.stem.split('-')[0]
+              
+              # Create multipart form data (matching twine's format)
+              fields = {
+                  ':action': 'file_upload',
+                  'name': package_name,
+                  'content': (dist_file.name, file_content, 'application/octet-stream'),
+              }
+              
+              encoder = MultipartEncoder(fields=fields)
+              
+              # Use OIDC token as Bearer token (PyPI trusted publishing format)
+              headers = {
+                  'Authorization': f'Bearer {oidc_token}',
+                  'Content-Type': encoder.content_type,
+              }
+              
+              try:
+                  response = requests.post(
+                      repository_url,
+                      data=encoder,
+                      headers=headers,
+                      allow_redirects=False,
+                      timeout=120
+                  )
+                  
+                  if response.status_code in [200, 201]:
+                      print(f"✅ Successfully uploaded {dist_file.name}")
+                  elif response.status_code == 403:
+                      print(f"❌ 403 Forbidden for {dist_file.name}")
+                      print(f"Response headers: {dict(response.headers)}")
+                      print(f"Response body: {response.text[:1000]}")
+                      print("\n💡 Troubleshooting:")
+                      print("   - Verify trusted publisher is active (not pending)")
+                      print("   - Check that project name matches: web3_multi_provider")
+                      print("   - Ensure repository, workflow, and environment match exactly")
+                      sys.exit(1)
+                  else:
+                      print(f"❌ Failed to upload {dist_file.name}: HTTP {response.status_code}")
+                      print(f"Response: {response.text[:500]}")
+                      sys.exit(1)
+              except Exception as e:
+                  print(f"❌ Error uploading {dist_file.name}: {e}")
+                  sys.exit(1)
+          
+          print("✅ All files uploaded successfully")
+          PYTHON_SCRIPT
 
       - name: Success message
         run: echo "ℹ️ Test publish completed for version ${{ steps.extract-version.outputs.version }} 🎉"
