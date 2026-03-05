@@ -17,10 +17,11 @@ fi
 # Step 1: Get audience from PyPI
 echo "🔄 Getting OIDC audience from PyPI..."
 AUDIENCE_URL="https://${REPOSITORY_DOMAIN}/_/oidc/audience"
-AUDIENCE_RESPONSE=$(curl -s "$AUDIENCE_URL")
-
-if [ $? -ne 0 ] || [ -z "$AUDIENCE_RESPONSE" ]; then
-  echo "❌ Failed to get audience from PyPI"
+AUDIENCE_RESPONSE=$(curl -sS -w "\n%{http_code}" "$AUDIENCE_URL")
+HTTP_CODE=$(echo "$AUDIENCE_RESPONSE" | tail -n1)
+AUDIENCE_RESPONSE=$(echo "$AUDIENCE_RESPONSE" | sed '$d')
+if [ "$HTTP_CODE" != "200" ]; then
+  echo "❌ Failed to get audience from PyPI (HTTP $HTTP_CODE). Response: ${AUDIENCE_RESPONSE:-<empty>}"
   exit 1
 fi
 
@@ -34,11 +35,18 @@ echo "✅ Got OIDC audience: $OIDC_AUDIENCE"
 
 # Step 2: Get OIDC token from GitHub Actions with the correct audience
 echo "🔄 Getting OIDC token from GitHub Actions..."
-OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-  "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$OIDC_AUDIENCE" | jq -r '.value')
+OIDC_RAW=$(curl -sS -w "\n%{http_code}" -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+  "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$OIDC_AUDIENCE")
+HTTP_CODE=$(echo "$OIDC_RAW" | tail -n1)
+OIDC_JSON=$(echo "$OIDC_RAW" | sed '$d')
+if [ "$HTTP_CODE" != "200" ]; then
+  echo "❌ Failed to get OIDC token (HTTP $HTTP_CODE). Response: ${OIDC_JSON:-<empty>}"
+  exit 1
+fi
+OIDC_TOKEN=$(echo "$OIDC_JSON" | jq -r '.value')
 
 if [ -z "$OIDC_TOKEN" ] || [ "$OIDC_TOKEN" = "null" ]; then
-  echo "❌ Failed to get OIDC token"
+  echo "❌ Invalid OIDC token response: $OIDC_JSON"
   exit 1
 fi
 
