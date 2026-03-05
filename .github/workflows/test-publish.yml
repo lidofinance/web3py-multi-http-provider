@@ -49,7 +49,7 @@ jobs:
 
       - name: Set test version
         run: |
-          # Temporarily set version with dev version + commit SHA for test publish
+          # Temporarily set version to the generated dev version for test publish
           poetry version ${{ steps.extract-version.outputs.test_version }}
 
       - name: Build distribution
