@@ -1,8 +1,8 @@
 name: Test PyPI Publishing
 on:
   workflow_dispatch:
-  pull_request:
   push:
+    branches: [main]
 
 jobs:
   test-publish:
@@ -34,7 +34,23 @@ jobs:
       - name: Extract version
         id: extract-version
         run: |
-          echo "version=$(poetry version -s)" >> $GITHUB_OUTPUT
+          BASE_VERSION=$(poetry version -s)
+          # For test publishes, use dev version with a unique number per commit
+          # PyPI doesn't allow local versions (with +), so we use .devN format
+          # Use epoch seconds as dev number for uniqueness (modulo to keep it reasonable)
+          TIMESTAMP=$(date +%s)
+          DEV_NUMBER=$((TIMESTAMP % 10000000))  # Keep it under 10 million
+          # Use dev version format: 2.2.2 -> 2.2.3.dev1234567 (increment patch, add dev number)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
+          TEST_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1)).dev${DEV_NUMBER}"
+          echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
+          echo "version=$TEST_VERSION" >> $GITHUB_OUTPUT
+          echo "test_version=$TEST_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set test version
+        run: |
+          # Temporarily set version with dev version + commit SHA for test publish
+          poetry version ${{ steps.extract-version.outputs.test_version }}
 
       - name: Build distribution
         run: |
@@ -45,13 +61,18 @@ jobs:
           ls -la dist/
           echo "✅ Distributions built successfully"
 
-      - name: Test PyPI publish (dry-run check)
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          skip-existing: true
-          print-hash: true
-          verbose: true
+      - name: Get OIDC token and publish to TestPyPI
+        run: |
+          # Setup OIDC token (sets OIDC_TOKEN and TOKEN_EXCHANGE_URL environment variables)
+          source .github/scripts/setup_oidc_token.sh test.pypi.org
+          
+          # Install dependencies
+          pip install twine requests
+          
+          # Exchange token and upload using shared script
+          # No --skip-existing needed since each commit has a unique version
+          python3 .github/scripts/pypi_oidc_upload.py \
+            --repository-url "https://test.pypi.org/legacy/"
 
       - name: Success message
         run: echo "ℹ️ Test publish completed for version ${{ steps.extract-version.outputs.version }} 🎉"

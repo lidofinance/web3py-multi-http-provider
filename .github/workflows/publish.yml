@@ -41,8 +41,17 @@ jobs:
         run: |
           poetry build --no-interaction
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Get OIDC token and publish to PyPI
+        run: |
+          # Setup OIDC token (sets OIDC_TOKEN and TOKEN_EXCHANGE_URL environment variables)
+          source .github/scripts/setup_oidc_token.sh pypi.org
+          
+          # Install dependencies
+          pip install twine requests
+          
+          # Exchange token and upload using shared script
+          python3 .github/scripts/pypi_oidc_upload.py \
+            --repository-url "https://upload.pypi.org/legacy/"
 
       - name: Success message
         run: echo "ℹ️ Published version ${{ steps.extract-version.outputs.version }} 🎉"
