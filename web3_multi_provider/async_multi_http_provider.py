@@ -111,6 +111,7 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
                 logger.warning(
                     {
                         "msg": "Provider not responding.",
+                        "index": index,
                         "error": str(error).replace(str(provider.endpoint_uri), "****"),
                     }
                 )
