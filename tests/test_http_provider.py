@@ -54,7 +54,7 @@ def test_one_provider_works(mock_fetch_chain_id, provider_cls, caplog, mock_metr
     assert mock_metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
     assert mock_metrics.rpc_service_request_payload_bytes.return_value.observe.call_count > 0
 
-    assert {"msg": "Provider not responding.", "error": "Mocked connection error."} == caplog.records[3].msg
+    assert {"msg": "Provider not responding.", "index": 0, "error": "Mocked connection error."} == caplog.records[3].msg
     assert {"msg": f"Send request using {expected_provider_name}.", "method": "eth_getBlockByNumber", "params": "('latest', False)"} == \
            caplog.records[7].msg
     # Make sure second request will be directory to second provider and will ignore second one

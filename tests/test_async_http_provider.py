@@ -47,6 +47,7 @@ async def test_one_provider_works(make_post_request, mock_fetch_chain_id, provid
     expected_provider_name = provider_cls.__name__
     assert caplog.records[2].msg == {
         "msg": "Provider not responding.",
+        "index": 0,
         "error": "Mocked connection error.",
     }
 
