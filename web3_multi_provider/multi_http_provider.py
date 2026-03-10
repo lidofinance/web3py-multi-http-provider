@@ -104,7 +104,7 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
     ) -> RPCResponse:
         exceptions: list[Exception] = []
 
-        for provider in provider_iter:
+        for index, provider in enumerate(provider_iter):
             try:
                 response = provider.make_request(method, params)
             except Exception as error:  # pylint: disable=broad-except
@@ -112,6 +112,7 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
                 logger.warning(
                     {
                         "msg": "Provider not responding.",
+                        "index": index,
                         "error": str(error).replace(str(provider.endpoint_uri), "****"),
                     }
                 )
