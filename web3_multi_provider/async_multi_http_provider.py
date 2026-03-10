@@ -99,11 +99,11 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
         method: RPCEndpoint,
         params: Any,
         provider_name: str,
-        provider_iter: Iterable[AsyncHTTPProvider],
+        provider_iter: Iterable[AsyncHTTPProviderProxy],
     ) -> RPCResponse:
         exceptions: list[Exception] = []
 
-        for provider in provider_iter:
+        for index, provider in enumerate(provider_iter):
             try:
                 response = await provider.make_request(method, params)
             except Exception as error:  # pylint: disable=broad-except
