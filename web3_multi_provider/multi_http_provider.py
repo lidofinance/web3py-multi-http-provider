@@ -100,7 +100,7 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
         method: RPCEndpoint,
         params: Any,
         provider_name: str,
-        provider_iter: Iterable[HTTPProviderProxy],
+        provider_iter: Iterable[HTTPProvider],
     ) -> RPCResponse:
         exceptions: list[Exception] = []
 
