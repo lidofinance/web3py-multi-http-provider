@@ -99,7 +99,7 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
         method: RPCEndpoint,
         params: Any,
         provider_name: str,
-        provider_iter: Iterable[AsyncHTTPProviderProxy],
+        provider_iter: Iterable[AsyncHTTPProvider],
     ) -> RPCResponse:
         exceptions: list[Exception] = []
 
