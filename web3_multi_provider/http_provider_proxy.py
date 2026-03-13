@@ -66,7 +66,12 @@ class HTTPProviderProxy(HTTPProvider):
         self._chain_id: str = ""
         self._network: str = ""
         self._session: Optional[Any] = session 
-        self._request_session_manager: Optional[HTTPSessionManagerProxy] = None
+        self._request_session_manager = HTTPSessionManagerProxy(
+            chain_id=self._chain_id,
+            uri=self._uri,
+            network=self._network,
+            layer=self._layer,
+        )
 
     def _ensure_chain_info_initialized(self) -> None:
         """
@@ -75,12 +80,6 @@ class HTTPProviderProxy(HTTPProvider):
         """
         if self._chain_id != "":
             return
-        self._request_session_manager = HTTPSessionManagerProxy(
-            chain_id=self._chain_id,
-            uri=self._uri,
-            network=self._network,
-            layer=self._layer,
-        )
         self._chain_id = str(self._fetch_chain_id())
         self._network = metrics._CHAIN_ID_TO_NAME.get(int(self._chain_id), "unknown")
         self._request_session_manager = HTTPSessionManagerProxy(
