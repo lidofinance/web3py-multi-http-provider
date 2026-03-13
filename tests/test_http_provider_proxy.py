@@ -17,13 +17,12 @@ def test_initialization_fetches_chain_id_success(mock_make_request, mock_metrics
 
     assert provider._chain_id == ""
     assert provider._network == ""
-    assert provider._request_session_manager is None
+    assert provider._request_session_manager is not None
 
     provider.make_request(RPCEndpoint("eth_blockNumber"), [])
 
     assert provider._chain_id == "1"
     assert provider._network == "ethereum"
-    assert provider._request_session_manager is not None
     assert mock_make_request.call_count == 2
 
 

@@ -56,6 +56,14 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
         self._network: str = ""  # to pass fetching of the chain_id
         self._uri: str = normalize_provider(str(self.endpoint_uri))
         self._layer = layer
+        self._request_session_manager: HTTPSessionManagerProxy = (
+            HTTPSessionManagerProxy(
+                chain_id=self._chain_id,
+                uri=self._uri,
+                network=self._network,
+                layer=self._layer,
+            )
+        )
 
     async def _ensure_chain_info_initialized(self) -> None:
         """

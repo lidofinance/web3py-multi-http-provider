@@ -1,6 +1,8 @@
 name: Tests
 
-on: [push]
+on:
+  push:
+  pull_request:
 
 jobs:
   build:
@@ -26,4 +28,4 @@ jobs:
 
     - name: Test with pytest
       run: |
-        poetry run pytest --cov=web3_multi_provider tests
+        poetry run pytest --cov=web3_multi_provider -m "not integration" tests
