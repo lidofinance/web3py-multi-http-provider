@@ -41,3 +41,7 @@ profile = "black"
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "http_mock: configures mocked HTTP responses for tests",
+    "integration: marks tests that hit real RPC endpoints",
+]

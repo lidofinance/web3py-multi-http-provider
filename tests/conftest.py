@@ -46,6 +46,10 @@ def mock_metrics() -> MockMetrics:
 
 @pytest.fixture(autouse=True)
 def http_responses(request):
+    if request.node.get_closest_marker("integration"):
+        yield
+        return
+
     with responses.RequestsMock() as rsps:
         marker = request.node.get_closest_marker("http_mock")
 
