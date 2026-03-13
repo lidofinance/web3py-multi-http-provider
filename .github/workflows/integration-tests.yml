@@ -29,13 +29,6 @@ jobs:
         run: |
           poetry install
 
-      - name: Skip when integration RPC URLs secret is not configured
-        if: ${{ env.WEB3_MULTI_PROVIDER_INTEGRATION_RPC_URLS == '' }}
-        run: |
-          echo "WEB3_MULTI_PROVIDER_INTEGRATION_RPC_URLS is not configured; skipping integration test."
-          exit 0
-
       - name: Run integration test
-        if: ${{ env.WEB3_MULTI_PROVIDER_INTEGRATION_RPC_URLS != '' }}
         run: |
           poetry run pytest -m integration tests/test_integration_http_provider.py
