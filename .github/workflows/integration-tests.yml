@@ -6,9 +6,10 @@ on:
 
 jobs:
   integration:
-    if: ${{ secrets.WEB3_MULTI_PROVIDER_INTEGRATION_RPC_URLS != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      WEB3_MULTI_PROVIDER_INTEGRATION_RPC_URLS: ${{ secrets.WEB3_MULTI_PROVIDER_INTEGRATION_RPC_URLS }}
 
     steps:
       - uses: actions/checkout@v5
@@ -29,7 +30,5 @@ jobs:
           poetry install
 
       - name: Run integration test
-        env:
-          WEB3_MULTI_PROVIDER_INTEGRATION_RPC_URLS: ${{ secrets.WEB3_MULTI_PROVIDER_INTEGRATION_RPC_URLS }}
         run: |
           poetry run pytest -m integration tests/test_integration_http_provider.py
