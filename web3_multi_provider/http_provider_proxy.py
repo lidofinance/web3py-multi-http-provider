@@ -65,7 +65,7 @@ class HTTPProviderProxy(HTTPProvider):
         self._uri = normalize_provider(str(self.endpoint_uri))
         self._chain_id: str = ""
         self._network: str = ""
-        self._session: Optional[Any] = session 
+        self._session: Optional[Any] = session
         self._request_session_manager = HTTPSessionManagerProxy(
             chain_id=self._chain_id,
             uri=self._uri,
