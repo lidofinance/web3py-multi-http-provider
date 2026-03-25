@@ -7,10 +7,10 @@ license = "MIT License"
 readme = "README.md"
 include = [
     "LICENSE",
+    "web3_multi_provider/py.typed",
 ]
 packages = [
   {include = "web3_multi_provider"},
-  {include = "web3_multi_provider/py.typed"},
 ]
 
 [tool.poetry.dependencies]
