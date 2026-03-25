@@ -5,6 +5,7 @@ provides dummy metrics for environments where Prometheus isn't configured.
 """
 
 import dataclasses
+import warnings
 from functools import partial
 from typing import Any, Callable, Final
 
@@ -55,6 +56,24 @@ def _init_prometheus_metrics(registry=None) -> dict[str, Callable[..., Any]]:
     }
 
 
+_metrics_initialized: bool = False
+
+
+def warn_if_prometheus_not_initialized() -> None:
+    """Warn if prometheus_client is installed but init_metrics() has not been called."""
+    try:
+        import prometheus_client  # noqa: F401
+    except ImportError:
+        return
+    if not _metrics_initialized:
+        warnings.warn(
+            "prometheus_client is installed but init_metrics() has not been called. "
+            "Metrics will not be recorded. Call init_metrics() to enable them.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 _HTTP_RPC_SERVICE_REQUESTS: Any = _DummyMetric()
 _HTTP_RPC_BATCH_SIZE: Any = _DummyMetric()
 
@@ -68,9 +87,10 @@ def init_metrics(
     metrics_config: MetricsConfig = MetricsConfig(), registry=None
 ) -> None:
     _prom = _init_prometheus_metrics(registry)
-    global _HTTP_RPC_SERVICE_REQUESTS, _HTTP_RPC_BATCH_SIZE
+    global _metrics_initialized, _HTTP_RPC_SERVICE_REQUESTS, _HTTP_RPC_BATCH_SIZE
     global _RPC_REQUEST, _RPC_SERVICE_RESPONSE_SECONDS, _RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES
     global _CHAIN_ID_TO_NAME
+    _metrics_initialized = True
 
     counter: Any = _prom["Counter"]
     histogram: Any = _prom["Histogram"]

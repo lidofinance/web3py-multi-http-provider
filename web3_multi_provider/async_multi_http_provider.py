@@ -16,6 +16,7 @@ from web3_multi_provider.exceptions import (
     NoActiveProviderError,
     ProtocolNotSupported,
 )
+from web3_multi_provider.metrics import warn_if_prometheus_not_initialized
 from web3_multi_provider.util import sanitize_poa_response
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
         **kwargs: Any,
     ):
         logger.debug({"msg": f"Initialize {self.__class__.__name__}"})
+        warn_if_prometheus_not_initialized()
         self._hosts_uri = endpoint_urls
         self._providers = []
 
