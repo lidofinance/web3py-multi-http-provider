@@ -130,6 +130,4 @@ class HTTPProviderProxy(HTTPProvider):
         if not isinstance(response, list):
             # RPC errors return only one response with the error object
             return response
-        return sort_batch_response_by_response_ids(
-            cast(List[RPCResponse], sort_batch_response_by_response_ids(response))
-        )
+        return sort_batch_response_by_response_ids(cast(List[RPCResponse], response))
