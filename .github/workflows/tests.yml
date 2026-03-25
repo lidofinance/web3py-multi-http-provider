@@ -16,21 +16,10 @@ jobs:
     steps:
     - uses: actions/checkout@v5
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+    - name: Setup Python and Poetry
+      uses: ./.github/actions/setup
       with:
         python-version: ${{ matrix.python-version }}
-
-    - name: Read Poetry version
-      run: echo "POETRY_VERSION=$(cat .poetry-version)" >> $GITHUB_ENV
-
-    - name: Setup poetry
-      run: |
-        curl -sSL https://install.python-poetry.org/ | python - && echo "$HOME/.poetry/bin" >> $GITHUB_PATH
-
-    - name: Install dependencies
-      run: |
-        poetry install
 
     - name: Test with pytest
       run: |
