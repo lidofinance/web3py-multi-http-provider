@@ -71,6 +71,12 @@ Library has in-built prometheus metrics, to enable them run `metrics.init_metric
 
 ## For developers
 
+This project requires a specific Poetry version, pinned in `.poetry-version`. To install it:
+
+```bash
+POETRY_VERSION=$(cat .poetry-version) curl -sSL https://install.python-poetry.org/ | python -
+```
+
 1. `poetry install` - to install deps
 2. `pre-commit install` - to install pre-commit hooks
 
