@@ -76,7 +76,6 @@ pip install web3-multi-provider[metrics]
 ```py
 from web3 import Web3
 from web3_multi_provider import MultiProvider, init_metrics
-from web3_multi_provider.metrics import MetricsConfig
 
 init_metrics()  # must be called before creating a provider
 

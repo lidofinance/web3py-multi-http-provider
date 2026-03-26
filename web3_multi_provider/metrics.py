@@ -90,7 +90,6 @@ def init_metrics(
     global _metrics_initialized, _HTTP_RPC_SERVICE_REQUESTS, _HTTP_RPC_BATCH_SIZE
     global _RPC_REQUEST, _RPC_SERVICE_RESPONSE_SECONDS, _RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES
     global _CHAIN_ID_TO_NAME
-    _metrics_initialized = True
 
     counter: Any = _prom["Counter"]
     histogram: Any = _prom["Histogram"]
@@ -157,3 +156,5 @@ def init_metrics(
         ["network", "layer", "chain_id", "provider"],
         namespace=metrics_config.namespace,
     )
+
+    _metrics_initialized = True

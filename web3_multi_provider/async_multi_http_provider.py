@@ -62,26 +62,26 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
     def _validate_chain_ids(self) -> None:
         """
         Validates that all providers have the same chain ID.
-        
+
         Raises:
             ChainIdMismatchError: If providers have different chain IDs.
         """
         chain_ids: dict[str, list[str]] = {}
-        
+
         for provider in self._providers:
             if hasattr(provider, "_chain_id") and provider._chain_id:
                 chain_id = provider._chain_id
                 endpoint_uri = str(provider.endpoint_uri)
-                
+
                 if chain_id not in chain_ids:
                     chain_ids[chain_id] = []
                 chain_ids[chain_id].append(endpoint_uri)
-        
+
         if len(chain_ids) > 1:
             mismatches = []
             for chain_id, endpoints in chain_ids.items():
                 mismatches.append(f"Chain ID {chain_id}: {', '.join(endpoints)}")
-            
+
             raise ChainIdMismatchError(
                 f"Providers have different chain IDs:\n" + "\n".join(mismatches)
             )
