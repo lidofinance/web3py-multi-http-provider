@@ -1,7 +1,10 @@
 {
   "name": "web3-multi-provider",
   "image": "mcr.microsoft.com/devcontainers/python:3.13",
-  "postCreateCommand": "POETRY_VERSION=$(cat .poetry-version) curl -sSL https://install.python-poetry.org/ | python - && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc && export PATH=\"$HOME/.local/bin:$PATH\" && poetry install && poetry run pre-commit install",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {}
+  },
+  "postCreateCommand": "curl -sSL https://install.python-poetry.org/ | python - && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc && echo 'export GPG_TTY=$(tty)' >> ~/.bashrc && export PATH=\"$HOME/.local/bin:$PATH\" && poetry install && poetry run pre-commit install && npm install -g @anthropic-ai/claude-code@2.1.89",
   "customizations": {
     "vscode": {
       "extensions": [
