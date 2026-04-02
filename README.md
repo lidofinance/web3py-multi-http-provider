@@ -133,6 +133,24 @@ This project requires a specific Poetry version, pinned in `.poetry-version`. To
 POETRY_VERSION=$(cat .poetry-version) curl -sSL https://install.python-poetry.org/ | python -
 ```
 
+### Requirements
+
+- [Docker](https://docs.docker.com/get-docker/)
+- [Dev Container CLI](https://github.com/devcontainers/cli): `npm install -g @devcontainers/cli`
+- VS Code: [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
+- JetBrains: [Dev Containers](https://plugins.jetbrains.com/plugin/21724-dev-containers) plugin
+
+### Setup
+
+```bash
+devcontainer up --workspace-folder .
+devcontainer exec --workspace-folder . bash
+```
+
+This installs all dependencies and pre-commit hooks automatically via `postCreateCommand`.
+
+Alternatively, without Docker:
+
 1. `poetry install` - to install deps
 2. `pre-commit install` - to install pre-commit hooks
 

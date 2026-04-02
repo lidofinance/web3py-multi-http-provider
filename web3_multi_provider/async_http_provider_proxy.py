@@ -74,13 +74,11 @@ class AsyncHTTPProviderProxy(AsyncHTTPProvider):
             return
         self._chain_id = str(await self._fetch_chain_id())
         self._network = metrics._CHAIN_ID_TO_NAME.get(int(self._chain_id), "unknown")
-        self._request_session_manager: HTTPSessionManagerProxy = (
-            HTTPSessionManagerProxy(
-                chain_id=self._chain_id,
-                uri=self._uri,
-                network=self._network,
-                layer=self._layer,
-            )
+        self._request_session_manager = HTTPSessionManagerProxy(
+            chain_id=self._chain_id,
+            uri=self._uri,
+            network=self._network,
+            layer=self._layer,
         )
 
     async def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
