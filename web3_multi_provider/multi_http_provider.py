@@ -15,6 +15,7 @@ from web3_multi_provider.exceptions import (
     ProtocolNotSupported,
 )
 from web3_multi_provider.http_provider_proxy import HTTPProviderProxy
+from web3_multi_provider.metrics import warn_if_prometheus_not_initialized
 from web3_multi_provider.util import sanitize_poa_response
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
         **kwargs: Any,
     ):
         logger.debug({"msg": f"Initialize {self.__class__.__name__}"})
+        warn_if_prometheus_not_initialized()
         self._hosts_uri = endpoint_urls
         self._providers = []
 
@@ -61,26 +63,26 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
     def _validate_chain_ids(self) -> None:
         """
         Validates that all providers have the same chain ID.
-        
+
         Raises:
             ChainIdMismatchError: If providers have different chain IDs.
         """
         chain_ids: dict[str, list[str]] = {}
-        
+
         for provider in self._providers:
             if hasattr(provider, "_chain_id") and provider._chain_id:
                 chain_id = provider._chain_id
                 endpoint_uri = str(provider.endpoint_uri)
-                
+
                 if chain_id not in chain_ids:
                     chain_ids[chain_id] = []
                 chain_ids[chain_id].append(endpoint_uri)
-        
+
         if len(chain_ids) > 1:
             mismatches = []
             for chain_id, endpoints in chain_ids.items():
                 mismatches.append(f"Chain ID {chain_id}: {', '.join(endpoints)}")
-            
+
             raise ChainIdMismatchError(
                 f"Providers have different chain IDs:\n" + "\n".join(mismatches)
             )
