@@ -1,5 +1,7 @@
 import logging
+import time
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any, Iterable
 
 from eth_typing import URI
@@ -16,9 +18,20 @@ from web3_multi_provider.exceptions import (
 )
 from web3_multi_provider.http_provider_proxy import HTTPProviderProxy
 from web3_multi_provider.metrics import warn_if_prometheus_not_initialized
-from web3_multi_provider.util import sanitize_poa_response
+from web3_multi_provider.util import (
+    is_transient_error,
+    format_provider_failures_message,
+    sanitize_poa_response,
+)
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TransientErrorConfig:
+    max_retries: int = 3
+    backoff_factor: float = 1.0
+    max_delay_seconds: int = 10
 
 
 class BaseMultiProvider(JSONBaseProvider, ABC):
@@ -34,12 +47,14 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
         exception_retry_configuration: (
             ExceptionRetryConfiguration | Empty | None
         ) = empty,
+        transient_error_config: TransientErrorConfig | None = None,
         **kwargs: Any,
     ):
         logger.debug({"msg": f"Initialize {self.__class__.__name__}"})
         warn_if_prometheus_not_initialized()
         self._hosts_uri = endpoint_urls
         self._providers = []
+        self._transient_error_config = transient_error_config or TransientErrorConfig()
 
         if endpoint_urls:
             self.endpoint_uri = endpoint_urls[0]
@@ -97,8 +112,8 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
         self._validate_chain_ids()
         return response
 
-    @staticmethod
     def _make_request_with_failover(
+        self,
         method: RPCEndpoint,
         params: Any,
         provider_name: str,
@@ -110,14 +125,45 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
             try:
                 response = provider.make_request(method, params)
             except Exception as error:  # pylint: disable=broad-except
+                if is_transient_error(error):
+                    logger.info(
+                        {
+                            "msg": f"Transient error from provider {index}, attempting retries.",
+                            "error": str(error).replace(str(provider.endpoint_uri), "****"),
+                            "method": method,
+                        }
+                    )
+
+                    retry_response = self._retry_transient_error(
+                        provider, method, params, index
+                    )
+                    if retry_response is not None:
+                        sanitize_poa_response(method, retry_response)
+                        logger.debug(
+                            {
+                                "msg": f"Retry successful using {provider_name}.",
+                                "method": method,
+                                "provider_index": index,
+                            }
+                        )
+                        return retry_response
+
+                    logger.warning(
+                        {
+                            "msg": f"Transient retries exhausted for provider {index}.",
+                            "error": str(error).replace(str(provider.endpoint_uri), "****"),
+                        }
+                    )
+                else:
+                    # Hard error, log and move to next provider immediately
+                    logger.warning(
+                        {
+                            "msg": f"Hard error from provider {index}, switching to next.",
+                            "error": str(error).replace(str(provider.endpoint_uri), "****"),
+                        }
+                    )
+
                 exceptions.append(error)
-                logger.warning(
-                    {
-                        "msg": "Provider not responding.",
-                        "index": index,
-                        "error": str(error).replace(str(provider.endpoint_uri), "****"),
-                    }
-                )
             else:
                 sanitize_poa_response(method, response)
                 logger.debug(
@@ -129,9 +175,71 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
                 )
                 return response
 
-        msg = f"No active provider available in {provider_name}."
+        msg = format_provider_failures_message(exceptions, provider_name.lower())
         logger.debug({"msg": msg})
         raise NoActiveProviderError.from_exceptions(msg, exceptions)
+
+    def _retry_transient_error(
+        self,
+        provider: HTTPProvider,
+        method: RPCEndpoint,
+        params: Any,
+        provider_index: int,
+    ) -> RPCResponse | None:
+        """
+        Retry transient error on same provider with exponential backoff.
+
+        Returns successful response or None if all retries failed.
+        """
+        config = self._transient_error_config
+
+        for retry_attempt in range(config.max_retries):
+            # Calculate backoff delay: 2s, 4s, 8s, ...
+            delay = min(
+                config.backoff_factor ** (retry_attempt + 1),
+                config.max_delay_seconds
+            )
+
+            logger.debug(
+                {
+                    "msg": f"Retrying provider {provider_index} in {delay}s (attempt {retry_attempt + 1}/{config.max_retries})",
+                    "method": method,
+                    "delay": delay,
+                }
+            )
+
+            time.sleep(delay)
+
+            try:
+                response = provider.make_request(method, params)
+                logger.info(
+                    {
+                        "msg": f"Transient retry succeeded on attempt {retry_attempt + 1}",
+                        "provider_index": provider_index,
+                        "method": method,
+                    }
+                )
+                return response
+            except Exception as retry_error:  # pylint: disable=broad-except
+                logger.debug(
+                    {
+                        "msg": f"Retry attempt {retry_attempt + 1} failed",
+                        "provider_index": provider_index,
+                        "error": str(retry_error).replace(str(provider.endpoint_uri), "****"),
+                    }
+                )
+
+                # If this is no longer a transient error, stop retrying
+                if not is_transient_error(retry_error):
+                    logger.debug(
+                        {
+                            "msg": f"Error type changed to hard failure, stopping retries",
+                            "provider_index": provider_index,
+                        }
+                    )
+                    break
+
+        return None
 
     @abstractmethod
     def get_providers(self) -> Iterable[HTTPProvider]:
