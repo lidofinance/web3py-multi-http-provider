@@ -296,3 +296,178 @@ class TestFallbackProvider:
         assert self._metrics.rpc_service_response_payload_bytes.return_value.observe.call_count > 0
         assert len(responses.calls) == 2
         assert responses.calls[1].request.url == "http://127.0.0.1:9000/"
+
+
+_GOOD_RPC_BODY = b'{"jsonrpc":"2.0","id":0,"result":"0x1"}'
+_JSON_RPC_ERROR_BODY = (
+    b'{"jsonrpc":"2.0","id":0,'
+    b'"error":{"code":-32601,"message":"Method not found"}}'
+)
+
+
+class TestHttpErrorFailover:
+    BAD = "http://127.0.0.1:9100"
+    GOOD = "http://127.0.0.1:9101"
+
+    @pytest.fixture(autouse=True)
+    def __inject_fixtures(self, caplog, mock_metrics):
+        self._caplog = caplog
+        self._metrics = mock_metrics
+
+    @responses.activate
+    @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1,
+    )
+    def test_make_request__first_provider_returns_404_with_html_body__fails_over_to_next(
+        self, mock_fetch_chain_id
+    ):
+        responses.add(
+            responses.POST,
+            self.BAD,
+            body=b"<html><body>Not Found</body></html>",
+            status=404,
+            content_type="text/html",
+        )
+        responses.add(
+            responses.POST,
+            self.GOOD,
+            body=_GOOD_RPC_BODY,
+            status=200,
+            content_type="application/json",
+        )
+
+        provider = FallbackProvider(
+            [self.BAD, self.GOOD], exception_retry_configuration=None
+        )
+        result = provider.make_request("eth_chainId", [])
+
+        assert result == {"jsonrpc": "2.0", "id": 0, "result": "0x1"}
+        assert len(responses.calls) == 2
+        assert responses.calls[0].request.url == self.BAD + "/"
+        assert responses.calls[1].request.url == self.GOOD + "/"
+
+    @responses.activate
+    @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1,
+    )
+    def test_make_request__first_provider_returns_404_with_json_rpc_error_body__fails_over_to_next(
+        self, mock_fetch_chain_id
+    ):
+        responses.add(
+            responses.POST,
+            self.BAD,
+            body=_JSON_RPC_ERROR_BODY,
+            status=404,
+            content_type="application/json",
+        )
+        responses.add(
+            responses.POST,
+            self.GOOD,
+            body=_GOOD_RPC_BODY,
+            status=200,
+            content_type="application/json",
+        )
+
+        provider = FallbackProvider(
+            [self.BAD, self.GOOD], exception_retry_configuration=None
+        )
+        result = provider.make_request("eth_chainId", [])
+
+        assert result == {"jsonrpc": "2.0", "id": 0, "result": "0x1"}
+        assert len(responses.calls) == 2
+
+    @pytest.mark.parametrize("status", [500, 502, 503, 504])
+    @responses.activate
+    @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1,
+    )
+    def test_make_request__first_provider_returns_5xx__fails_over_to_next(
+        self, mock_fetch_chain_id, status
+    ):
+        responses.add(
+            responses.POST,
+            self.BAD,
+            body=b"upstream error",
+            status=status,
+            content_type="text/plain",
+        )
+        responses.add(
+            responses.POST,
+            self.GOOD,
+            body=_GOOD_RPC_BODY,
+            status=200,
+            content_type="application/json",
+        )
+
+        provider = FallbackProvider(
+            [self.BAD, self.GOOD], exception_retry_configuration=None
+        )
+        result = provider.make_request("eth_chainId", [])
+
+        assert result == {"jsonrpc": "2.0", "id": 0, "result": "0x1"}
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1,
+    )
+    def test_make_request__first_provider_returns_200_with_non_json_body__fails_over_to_next(
+        self, mock_fetch_chain_id
+    ):
+        responses.add(
+            responses.POST,
+            self.BAD,
+            body=b"<html>welcome</html>",
+            status=200,
+            content_type="text/html",
+        )
+        responses.add(
+            responses.POST,
+            self.GOOD,
+            body=_GOOD_RPC_BODY,
+            status=200,
+            content_type="application/json",
+        )
+
+        provider = FallbackProvider(
+            [self.BAD, self.GOOD], exception_retry_configuration=None
+        )
+        result = provider.make_request("eth_chainId", [])
+
+        assert result == {"jsonrpc": "2.0", "id": 0, "result": "0x1"}
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    @patch(
+        "web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id",
+        return_value=1,
+    )
+    def test_make_request__all_providers_return_404__raises_no_active_provider_error(
+        self, mock_fetch_chain_id
+    ):
+        urls = [
+            "http://127.0.0.1:9100",
+            "http://127.0.0.1:9101",
+            "http://127.0.0.1:9102",
+        ]
+        for url in urls:
+            responses.add(
+                responses.POST,
+                url,
+                body=b"not found",
+                status=404,
+                content_type="text/plain",
+            )
+
+        provider = FallbackProvider(urls, exception_retry_configuration=None)
+
+        with pytest.raises(NoActiveProviderError) as exc_info:
+            provider.make_request("eth_chainId", [])
+
+        assert len(responses.calls) == 3
+        assert len(exc_info.value.exceptions) == 3
+
