@@ -98,40 +98,46 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
         return response
 
     @staticmethod
-    def _make_request_with_failover(
+    def _make_request_with_failover(  # pylint: disable=inconsistent-return-statements
         method: RPCEndpoint,
         params: Any,
         provider_name: str,
         provider_iter: Iterable[HTTPProvider],
     ) -> RPCResponse:
         exceptions: list[Exception] = []
+        try:
+            for index, provider in enumerate(provider_iter):
+                try:
+                    response = provider.make_request(method, params)
+                except Exception as error:  # pylint: disable=broad-except
+                    exceptions.append(error)
+                    logger.warning(
+                        {
+                            "msg": "Provider not responding.",
+                            "index": index,
+                            "error": str(error).replace(
+                                str(provider.endpoint_uri), "****"
+                            ),
+                        }
+                    )
+                else:
+                    sanitize_poa_response(method, response)
+                    logger.debug(
+                        {
+                            "msg": f"Send request using {provider_name}.",
+                            "method": method,
+                            "params": str(params),
+                        }
+                    )
+                    return response
 
-        for index, provider in enumerate(provider_iter):
-            try:
-                response = provider.make_request(method, params)
-            except Exception as error:  # pylint: disable=broad-except
-                exceptions.append(error)
-                logger.warning(
-                    {
-                        "msg": "Provider not responding.",
-                        "index": index,
-                        "error": str(error).replace(str(provider.endpoint_uri), "****"),
-                    }
-                )
-            else:
-                sanitize_poa_response(method, response)
-                logger.debug(
-                    {
-                        "msg": f"Send request using {provider_name}.",
-                        "method": method,
-                        "params": str(params),
-                    }
-                )
-                return response
-
-        msg = f"No active provider available in {provider_name}."
-        logger.debug({"msg": msg})
-        raise NoActiveProviderError.from_exceptions(msg, exceptions)
+            msg = f"No active provider available in {provider_name}."
+            logger.debug({"msg": msg})
+            raise NoActiveProviderError.from_exceptions(msg, exceptions)
+        finally:
+            # Kept exceptions reference this frame via their tracebacks; dropping the list breaks
+            # the cycle that would otherwise pin all caller frames and their locals until a full GC.
+            del exceptions
 
     @abstractmethod
     def get_providers(self) -> Iterable[HTTPProvider]:

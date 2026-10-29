@@ -104,33 +104,39 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
         provider_iter: Iterable[AsyncHTTPProvider],
     ) -> RPCResponse:
         exceptions: list[Exception] = []
+        try:
+            for index, provider in enumerate(provider_iter):
+                try:
+                    response = await provider.make_request(method, params)
+                except Exception as error:  # pylint: disable=broad-except
+                    exceptions.append(error)
+                    logger.warning(
+                        {
+                            "msg": "Provider not responding.",
+                            "index": index,
+                            "error": str(error).replace(
+                                str(provider.endpoint_uri), "****"
+                            ),
+                        }
+                    )
+                else:
+                    sanitize_poa_response(method, response)
+                    logger.debug(
+                        {
+                            "msg": f"Send request using {provider_name}.",
+                            "method": method,
+                            "params": str(params),
+                        }
+                    )
+                    return response
 
-        for index, provider in enumerate(provider_iter):
-            try:
-                response = await provider.make_request(method, params)
-            except Exception as error:  # pylint: disable=broad-except
-                exceptions.append(error)
-                logger.warning(
-                    {
-                        "msg": "Provider not responding.",
-                        "index": index,
-                        "error": str(error).replace(str(provider.endpoint_uri), "****"),
-                    }
-                )
-            else:
-                sanitize_poa_response(method, response)
-                logger.debug(
-                    {
-                        "msg": f"Send request using {provider_name}.",
-                        "method": method,
-                        "params": str(params),
-                    }
-                )
-                return response
-
-        msg = f"No active provider available in {provider_name}."
-        logger.debug({"msg": msg})
-        raise NoActiveProviderError.from_exceptions(msg, exceptions)
+            msg = f"No active provider available in {provider_name}."
+            logger.debug({"msg": msg})
+            raise NoActiveProviderError.from_exceptions(msg, exceptions)
+        finally:
+            # Kept exceptions reference this frame via their tracebacks; dropping the list breaks
+            # the cycle that would otherwise pin all caller frames and their locals until a full GC.
+            del exceptions
 
     @abstractmethod
     def get_providers(self) -> Iterable[AsyncHTTPProvider]:
