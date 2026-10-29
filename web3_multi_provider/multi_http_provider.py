@@ -135,9 +135,8 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
             logger.debug({"msg": msg})
             raise NoActiveProviderError.from_exceptions(msg, exceptions)
         finally:
-            # Kept exceptions reference this frame via their tracebacks; dropping the list breaks
-            # the cycle that would otherwise pin all caller frames and their locals until a full GC.
-            del exceptions
+            # Break explicitly a reference cycle, as socket.create_connection does
+            exceptions.clear()
 
     @abstractmethod
     def get_providers(self) -> Iterable[HTTPProvider]:

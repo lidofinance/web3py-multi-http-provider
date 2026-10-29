@@ -1,11 +1,11 @@
 import gc
 import weakref
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from web3 import AsyncWeb3, Web3
 
-from tests.mocked_requests import mock_async_response, mock_response
+from tests.mocked_requests import _AVAILABLE_ADDRESS, _MOCK_REQUEST_GET_RESULT, mock_response
 from web3_multi_provider import AsyncFallbackProvider, AsyncMultiProvider, FallbackProvider, MultiProvider, NoActiveProviderError
 
 FAILOVER_THEN_OK = ["http://127.0.0.1:9001", "http://127.0.0.1:9000"]
@@ -31,6 +31,16 @@ def _sync_post(endpoint_uri, *args, **kwargs):
     return mock_response(endpoint_uri)
 
 
+async def _async_post(endpoint_uri, *args, **kwargs):
+    # web3 calls raise_for_status() without awaiting it; an AsyncMock there would leave a
+    # never-awaited coroutine whose warning, if turned into an error, keeps the frames alive.
+    if _AVAILABLE_ADDRESS not in endpoint_uri:
+        raise ConnectionError("Mocked connection error.")
+    response = MagicMock()
+    response.read = AsyncMock(return_value=_MOCK_REQUEST_GET_RESULT)
+    return response
+
+
 @pytest.mark.parametrize("provider_cls", [FallbackProvider, MultiProvider])
 @pytest.mark.parametrize("endpoints", [FAILOVER_THEN_OK, ALL_DOWN], ids=["failover_then_ok", "all_down"])
 @patch("web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id", return_value=1)
@@ -44,7 +54,9 @@ def test_failover_does_not_pin_caller_locals(
         heavy = _Heavy()
         try:
             w3.eth.get_block("latest")
-        except NoActiveProviderError:
+        except NoActiveProviderError as error:
+            # The group still carries every provider's exception after the list is cleared.
+            assert len(error.exceptions) == len(endpoints)
             return weakref.ref(heavy), False
         return weakref.ref(heavy), True
 
@@ -58,7 +70,7 @@ def test_failover_does_not_pin_caller_locals(
 @patch("web3_multi_provider.async_http_provider_proxy.AsyncHTTPProviderProxy._fetch_chain_id", return_value=1)
 @patch(
     "web3._utils.http_session_manager.HTTPSessionManager.async_get_response_from_post_request",
-    side_effect=mock_async_response,
+    side_effect=_async_post,
 )
 @pytest.mark.asyncio
 async def test_async_failover_does_not_pin_caller_locals(
@@ -70,7 +82,9 @@ async def test_async_failover_does_not_pin_caller_locals(
         heavy = _Heavy()
         try:
             await w3.eth.get_block("latest")
-        except NoActiveProviderError:
+        except NoActiveProviderError as error:
+            # The group still carries every provider's exception after the list is cleared.
+            assert len(error.exceptions) == len(endpoints)
             return weakref.ref(heavy), False
         return weakref.ref(heavy), True
 
