@@ -50,6 +50,18 @@ It fails if no endpoints are available.
 
 This provider sends requests to the all endpoints in the sequence until response received or endpoints list exhausted.
 
+A failing endpoint is slow to fail over from: web3 retries it before the next endpoint is tried. Pass
+`cooldown_seconds` to try an endpoint that failed after the other endpoints until its cooldown ends.
+It is still tried if the other endpoints fail, and it is first again when the cooldown ends. The
+default `0` disables the cooldown.
+
+```py
+w3 = Web3(FallbackProvider([
+    'http://127.0.0.1:8000/',
+    'https://mainnet.infura.io/v3/...',
+], cooldown_seconds=60))
+```
+
 ### `AsyncMultiProvider` and `AsyncFallbackProvider`
 
 These providers are async versions of `MultiProvider` and `FallbackProvider` respectively. They may

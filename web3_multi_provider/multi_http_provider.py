@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 
 from eth_typing import URI
 from web3 import HTTPProvider
@@ -9,6 +9,7 @@ from web3.providers import JSONBaseProvider
 from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
+from web3_multi_provider.cooldown import ProviderCooldown
 from web3_multi_provider.exceptions import (
     ChainIdMismatchError,
     NoActiveProviderError,
@@ -160,7 +161,23 @@ class MultiProvider(BaseMultiProvider):
 
 
 class FallbackProvider(BaseMultiProvider):
-    """Basic fallback provider: tries each provider once, in order."""
+    """Fallback provider: tries each provider once, in order.
+
+    With `cooldown_seconds` > 0, a provider that failed is tried after the others until its
+    cooldown ends.
+    """
+
+    def __init__(self, *args: Any, cooldown_seconds: float = 0, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self._cooldown = ProviderCooldown(cooldown_seconds)
 
     def get_providers(self) -> Iterable[HTTPProvider]:
-        return iter(self._providers)
+        if not self._cooldown.enabled:
+            return iter(self._providers)
+        return self._get_providers_with_cooldown()
+
+    def _get_providers_with_cooldown(self) -> Iterator[HTTPProvider]:
+        for index in self._cooldown.order(len(self._providers)):
+            yield self._providers[index]
+            # Failover asks for the next provider only when this one raised.
+            self._cooldown.mark_failed(index)
