@@ -16,6 +16,7 @@ class MockMetrics:
     rpc_service_response_seconds: Mock
     rpc_service_request_payload_bytes: Mock
     rpc_service_response_payload_bytes: Mock
+    provider_cooldown_events: Mock
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -33,6 +34,7 @@ def mock_metrics() -> MockMetrics:
         patch("web3_multi_provider.metrics._RPC_SERVICE_RESPONSE_SECONDS.labels", return_value=MagicMock()) as rpc_resp_sec,
         patch("web3_multi_provider.metrics._RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels", return_value=MagicMock()) as rpc_req_payload,
         patch("web3_multi_provider.metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES.labels", return_value=MagicMock()) as rpc_resp_payload,
+        patch("web3_multi_provider.metrics._PROVIDER_COOLDOWN_EVENTS.labels", return_value=MagicMock()) as cooldown_events,
     ):
         yield MockMetrics(
             http_rpc_service_requests=req,
@@ -41,6 +43,7 @@ def mock_metrics() -> MockMetrics:
             rpc_service_response_seconds=rpc_resp_sec,
             rpc_service_request_payload_bytes=rpc_req_payload,
             rpc_service_response_payload_bytes=rpc_resp_payload,
+            provider_cooldown_events=cooldown_events,
         )
 
 

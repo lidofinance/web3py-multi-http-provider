@@ -57,9 +57,12 @@ def test_one_provider_works(mock_fetch_chain_id, provider_cls, caplog, mock_metr
     assert {"msg": "Provider not responding.", "index": 0, "error": "Mocked connection error."} == caplog.records[3].msg
     assert {"msg": f"Send request using {expected_provider_name}.", "method": "eth_getBlockByNumber", "params": "('latest', False)"} == \
            caplog.records[7].msg
-    # Make sure second request will be directory to second provider and will ignore second one
     assert {"msg": f"Send request using {expected_provider_name}.", "method": "eth_getBlockByNumber", "params": "('latest', False)", } == \
-           caplog.records[13].msg
+           caplog.records[-1].msg
+    # FallbackProvider starts every request from the first endpoint; MultiProvider starts the
+    # second request from the second endpoint, so it skips the broken one.
+    not_responding = [r for r in caplog.records if isinstance(r.msg, dict) and r.msg.get("msg") == "Provider not responding."]
+    assert len(not_responding) == {FallbackProvider: 2, MultiProvider: 1}[provider_cls]
 
 
 class TestHttpProvider:
