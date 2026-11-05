@@ -1,7 +1,7 @@
 # pylint: disable=duplicate-code
 import logging
-from abc import ABC, abstractmethod
-from typing import Any, Iterable
+from abc import ABC
+from typing import Any, Callable, Iterable
 
 from eth_typing import URI
 from web3 import AsyncHTTPProvider
@@ -11,21 +11,35 @@ from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
 from web3_multi_provider.async_http_provider_proxy import AsyncHTTPProviderProxy
-from web3_multi_provider.cooldown import ProviderCooldown
-from web3_multi_provider.exceptions import (
+from web3_multi_provider.cooldown import is_endpoint_failure
+
+# Re-exported: these were importable from this module before the failover core moved out.
+from web3_multi_provider.exceptions import (  # pylint: disable=unused-import
     ChainIdMismatchError,
     NoActiveProviderError,
     ProtocolNotSupported,
 )
+from web3_multi_provider.failover import (
+    EndpointSelector,
+    InOrderSelector,
+    RoundRobinSelector,
+    build_failover,
+)
 from web3_multi_provider.metrics import warn_if_prometheus_not_initialized
-from web3_multi_provider.util import sanitize_poa_response
+from web3_multi_provider.util import ensure_http_endpoint
 
 logger = logging.getLogger(__name__)
 
 
 class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
-    """Base async provider for multiple endpoint handling strategies."""
+    """Base async provider for providers with multiple endpoints.
 
+    Subclasses choose the endpoint order with `_selector_class`. With `cooldown_seconds`
+    > 0, an endpoint that failed with an error for which `cooldown_on` is true is tried
+    after the others until its cooldown ends.
+    """
+
+    _selector_class: type[EndpointSelector] = InOrderSelector
     _providers: list[AsyncHTTPProvider]
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -35,6 +49,9 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
         exception_retry_configuration: (
             ExceptionRetryConfiguration | Empty | None
         ) = empty,
+        *,
+        cooldown_seconds: float = 0,
+        cooldown_on: Callable[[Exception], bool] = is_endpoint_failure,
         **kwargs: Any,
     ):
         logger.debug({"msg": f"Initialize {self.__class__.__name__}"})
@@ -46,10 +63,7 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
             self.endpoint_uri = endpoint_urls[0]
 
         for endpoint_uri in endpoint_urls:
-            if not endpoint_uri.startswith("http"):
-                protocol = endpoint_uri.split("://")[0]
-                raise ProtocolNotSupported(f'Protocol "{protocol}" is not supported.')
-
+            ensure_http_endpoint(endpoint_uri)
             provider = AsyncHTTPProviderProxy(
                 endpoint_uri=endpoint_uri,
                 request_kwargs=request_kwargs,
@@ -58,138 +72,54 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
             )
             self._providers.append(provider)
 
+        self._failover = build_failover(
+            self._providers,
+            self._selector_class,
+            cooldown_seconds,
+            cooldown_on,
+            logger,
+        )
         super().__init__()
 
     def _validate_chain_ids(self) -> None:
+        """Raise `ChainIdMismatchError` if the endpoints serve different chains."""
+        self._failover.validate_chain_ids()
+
+    def get_providers(self) -> Iterable[AsyncHTTPProvider]:
+        """Endpoints in the order one request tries them.
+
+        Called once per request: it advances the round-robin position and may start a
+        cooldown probe.
         """
-        Validates that all providers have the same chain ID.
-
-        Raises:
-            ChainIdMismatchError: If providers have different chain IDs.
-        """
-        chain_ids: dict[str, list[str]] = {}
-
-        for provider in self._providers:
-            if hasattr(provider, "_chain_id") and provider._chain_id:
-                chain_id = provider._chain_id
-                endpoint_uri = str(provider.endpoint_uri)
-
-                if chain_id not in chain_ids:
-                    chain_ids[chain_id] = []
-                chain_ids[chain_id].append(endpoint_uri)
-
-        if len(chain_ids) > 1:
-            mismatches = []
-            for chain_id, endpoints in chain_ids.items():
-                mismatches.append(f"Chain ID {chain_id}: {', '.join(endpoints)}")
-
-            raise ChainIdMismatchError(
-                f"Providers have different chain IDs:\n" + "\n".join(mismatches)
-            )
+        return self._failover.plan()
 
     async def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
-        response = await self._make_request_with_failover(
-            method=method,
-            params=params,
-            provider_name=self.__class__.__name__,
-            provider_iter=self.get_providers(),
-        )
+        response = await self._make_request_with_failover(method, params)
         self._validate_chain_ids()
         return response
 
     async def _make_request_with_failover(
-        self,
-        method: RPCEndpoint,
-        params: Any,
-        provider_name: str,
-        provider_iter: Iterable[AsyncHTTPProvider],
+        self, method: RPCEndpoint, params: Any
     ) -> RPCResponse:
-        exceptions: list[Exception] = []
-        try:
-            for provider in provider_iter:
-                index = self._endpoint_index(provider)
+        with self._failover.attempt(self.__class__.__name__, method, params) as attempt:
+            for provider in self.get_providers():
                 try:
                     response = await provider.make_request(method, params)
                 except Exception as error:  # pylint: disable=broad-except
-                    exceptions.append(error)
-                    logger.warning(
-                        {
-                            "msg": "Provider not responding.",
-                            "index": index,
-                            "error": str(error).replace(
-                                str(provider.endpoint_uri), "****"
-                            ),
-                        }
-                    )
-                    self._on_provider_failure(index)
+                    attempt.failed(provider, error)
                 else:
-                    self._on_provider_success(index)
-                    sanitize_poa_response(method, response)
-                    logger.debug(
-                        {
-                            "msg": f"Send request using {provider_name}.",
-                            "method": method,
-                            "params": str(params),
-                        }
-                    )
-                    return response
-
-            msg = f"No active provider available in {provider_name}."
-            logger.debug({"msg": msg})
-            raise NoActiveProviderError.from_exceptions(msg, exceptions)
-        finally:
-            # Break explicitly a reference cycle, as socket.create_connection does
-            exceptions.clear()
-
-    def _endpoint_index(self, provider: AsyncHTTPProvider) -> int:
-        """Position of `provider` in the configured endpoint list, for logs and cooldowns.
-
-        `get_providers` may reorder endpoints, so the position in the iteration is not it.
-        """
-        return next(i for i, p in enumerate(self._providers) if p is provider)
-
-    def _on_provider_failure(self, index: int) -> None:
-        """Called after the endpoint at `index` raised on a request."""
-
-    def _on_provider_success(self, index: int) -> None:
-        """Called after the endpoint at `index` answered a request."""
-
-    @abstractmethod
-    def get_providers(self) -> Iterable[AsyncHTTPProvider]:
-        raise NotImplementedError
+                    return attempt.succeeded(provider, response)
+            raise attempt.exhausted()
 
 
 class AsyncMultiProvider(AsyncBaseMultiProvider):
-    """Round-robin failover: rotates provider on failure."""
+    """Round-robin: each request starts one endpoint further than the previous one, and
+    fails over to the next endpoints in turn."""
 
-    _current_provider_index: int = 0
-
-    def get_providers(self) -> Iterable[AsyncHTTPProvider]:
-        count = len(self._providers)
-        for _ in range(count):
-            provider = self._providers[self._current_provider_index]
-            self._current_provider_index = (self._current_provider_index + 1) % count
-            yield provider
+    _selector_class = RoundRobinSelector
 
 
 class AsyncFallbackProvider(AsyncBaseMultiProvider):
-    """Fallback provider: tries each provider once, in order.
+    """Fallback: every request tries the endpoints in the configured order."""
 
-    With `cooldown_seconds` > 0, a provider that failed is tried after the others until its
-    cooldown ends.
-    """
-
-    def __init__(self, *args: Any, cooldown_seconds: float = 0, **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        self._cooldown = ProviderCooldown(cooldown_seconds)
-
-    def get_providers(self) -> Iterable[AsyncHTTPProvider]:
-        if not self._cooldown.enabled:
-            return iter(self._providers)
-        return [self._providers[i] for i in self._cooldown.order(len(self._providers))]
-
-    def _on_provider_failure(self, index: int) -> None:
-        self._cooldown.mark_failed(index)
-
-    def _on_provider_success(self, index: int) -> None:
-        self._cooldown.mark_succeeded(index)
+    _selector_class = InOrderSelector
