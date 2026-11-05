@@ -17,6 +17,23 @@ from web3_multi_provider.metrics import _DummyMetric
 logger = logging.getLogger(__name__)
 
 
+def _rpc_error_code(response: requests.Response) -> str:
+    """JSON-RPC error code of a single response, for metric labels; "" if there is none.
+
+    Never raises. The body is read before web3 checks the HTTP status, so an exception
+    here would replace web3's `HTTPError` (and its status and retries) with a decode error.
+    Batch responses (JSON arrays) have no single code.
+    """
+    try:
+        body = response.json()
+    except ValueError:
+        return ""
+    error = body.get("error") if isinstance(body, dict) else None
+    if isinstance(error, dict):
+        return str(error.get("code", ""))
+    return ""
+
+
 class HTTPSessionManagerProxy(HTTPSessionManager):
     """
     A metrics-instrumented extension of `HTTPSessionManager` for monitoring and profiling
@@ -360,9 +377,10 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         try:
             response = func(*args, **kwargs)
             code = str(response.status_code)
-            result = "success"
+            # Same meaning as the async path, where aiohttp raises on HTTP errors.
+            result = "success" if response.ok else "fail"
             if self._layer == "el":
-                error_code = response.json().get("error", {}).get("code", "")
+                error_code = _rpc_error_code(response)
             # Observe response payload size when available
             self._observe_response_payload_sync(response)
             return response
