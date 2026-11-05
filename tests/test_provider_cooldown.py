@@ -495,7 +495,6 @@ _FAILING_ADDRESS = "http://rpc-failing.example"
 @pytest.mark.parametrize(
     "status, content_type, body, primary_calls",
     [
-        # Plain-text bodies reach the caller as a JSON decode error, without the status.
         (503, "text/plain", "Service Unavailable", 1),
         (429, "application/json", '{"error": {"code": 429, "message": "rate limited"}}', 1),
         (413, "application/json", '{"error": {"code": -32600, "message": "too large"}}', 2),

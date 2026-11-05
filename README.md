@@ -70,9 +70,8 @@ w3 = Web3(FallbackProvider([
 
 Only errors that say the endpoint is unhealthy start a cooldown, so one bad request does not move a
 healthy endpoint back for everyone. By default (`is_endpoint_failure`) these are connection errors,
-timeouts, HTTP 429 and 5xx, and responses that are not JSON. The sync providers read the body as JSON
-before they check the HTTP status, so any error status with a plain-text body (for example an HTML
-413 page) counts too. Pass `cooldown_on` to decide yourself, for example to start a cooldown on any
+timeouts, HTTP 429 and 5xx, and responses that are not JSON (for example an HTML page from a proxy in
+front of the node). Pass `cooldown_on` to decide yourself, for example to start a cooldown on any
 error:
 
 ```py

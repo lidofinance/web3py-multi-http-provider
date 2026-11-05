@@ -25,9 +25,8 @@ _INVALID_JSON_ERRORS = (json.JSONDecodeError, requests.JSONDecodeError)
 def is_endpoint_failure(error: Exception) -> bool:
     """Whether `error` says the endpoint is unhealthy, rather than that the request was bad.
 
-    True for connection errors, timeouts, HTTP 429 and 5xx, and bodies that are not JSON.
-    The sync provider reads the body as JSON before it checks the HTTP status, so a 429 or
-    5xx with a plain-text body arrives as a JSON decode error without its status.
+    True for connection errors, timeouts, HTTP 429 and 5xx, and bodies that are not JSON:
+    a node answers JSON, so anything else comes from a broken node or a proxy in front of it.
     """
     if isinstance(error, _TRANSPORT_ERRORS):
         return True
