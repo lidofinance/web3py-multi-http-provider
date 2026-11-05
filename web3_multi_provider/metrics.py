@@ -82,6 +82,8 @@ _RPC_SERVICE_RESPONSE_SECONDS: Any = _DummyMetric()
 _RPC_SERVICE_REQUEST_PAYLOAD_BYTES: Any = _DummyMetric()
 _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES: Any = _DummyMetric()
 
+_PROVIDER_COOLDOWN_EVENTS: Any = _DummyMetric()
+
 
 def init_metrics(
     metrics_config: MetricsConfig = MetricsConfig(), registry=None
@@ -89,7 +91,7 @@ def init_metrics(
     _prom = _init_prometheus_metrics(registry)
     global _metrics_initialized, _HTTP_RPC_SERVICE_REQUESTS, _HTTP_RPC_BATCH_SIZE
     global _RPC_REQUEST, _RPC_SERVICE_RESPONSE_SECONDS, _RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES
-    global _CHAIN_ID_TO_NAME
+    global _CHAIN_ID_TO_NAME, _PROVIDER_COOLDOWN_EVENTS
 
     counter: Any = _prom["Counter"]
     histogram: Any = _prom["Histogram"]
@@ -154,6 +156,18 @@ def init_metrics(
         "http_rpc_response_payload_bytes",
         "Distribution of response payload sizes (bytes) RPC calls.",
         ["network", "layer", "chain_id", "provider"],
+        namespace=metrics_config.namespace,
+    )
+
+    # Labelled by provider only: network and chain_id are unknown until an endpoint
+    # answers, and an endpoint can go on cooldown before it ever has.
+    _PROVIDER_COOLDOWN_EVENTS = counter(
+        "http_rpc_provider_cooldown_events",
+        (
+            "Endpoint cooldown transitions: entered, probe_failed (still failing when the "
+            "cooldown ended) and recovered."
+        ),
+        ["provider", "event"],
         namespace=metrics_config.namespace,
     )
 

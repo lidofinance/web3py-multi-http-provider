@@ -1,4 +1,5 @@
 from .async_multi_http_provider import AsyncFallbackProvider, AsyncMultiProvider
+from .cooldown import is_endpoint_failure
 from .exceptions import (
     ChainIdMismatchError,
     NoActiveProviderError,
@@ -18,4 +19,5 @@ __all__ = (
     "ProtocolNotSupported",
     "HTTPSessionManagerProxy",
     "init_metrics",
+    "is_endpoint_failure",
 )

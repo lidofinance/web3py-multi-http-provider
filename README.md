@@ -43,25 +43,40 @@ last_block = w3.eth.get_block('latest')
 
 ### `MultiProvider`
 
-This provider keeps track of the current endpoint and switches to the next one if an error occurs.
-It fails if no endpoints are available.
+This provider spreads requests across the endpoints (round-robin): each request starts one endpoint
+further than the previous one and fails over to the next endpoints in turn. It fails if no endpoints
+are available.
 
 ### `FallbackProvider`
 
-This provider sends requests to the all endpoints in the sequence until response received or endpoints list exhausted.
+This provider sends requests to the endpoints in the configured order until one answers or the list
+is exhausted.
 
-A failing endpoint is slow to fail over from: web3 retries it before the next endpoint is tried. Pass
-`cooldown_seconds` to try an endpoint that failed after the other endpoints until its cooldown ends.
-It is still tried if the other endpoints fail. When the cooldown ends, one request tries the endpoint
-first again; concurrent requests keep it last until that request finishes. If it fails, a new
-cooldown starts. An endpoint that answers, including one tried last, is first again at once. The
-default `0` disables the cooldown.
+### Endpoint cooldown
+
+A failing endpoint is slow to fail over from: web3 retries it before the next endpoint is tried. All
+providers accept `cooldown_seconds`: an endpoint that failed is then tried after the other endpoints
+until its cooldown ends. It is still tried if the other endpoints fail. When the cooldown ends, one
+request tries the endpoint in its usual place again; concurrent requests keep it last until that
+request finishes. If it fails, a new cooldown starts. An endpoint that answers, including one tried
+last, is back in its usual place at once. The default `0` disables the cooldown.
 
 ```py
 w3 = Web3(FallbackProvider([
     'http://127.0.0.1:8000/',
     'https://mainnet.infura.io/v3/...',
 ], cooldown_seconds=60))
+```
+
+Only errors that say the endpoint is unhealthy start a cooldown, so one bad request does not move a
+healthy endpoint back for everyone. By default (`is_endpoint_failure`) these are connection errors,
+timeouts, HTTP 429 and 5xx, and responses that are not JSON. The sync providers read the body as JSON
+before they check the HTTP status, so any error status with a plain-text body (for example an HTML
+413 page) counts too. Pass `cooldown_on` to decide yourself, for example to start a cooldown on any
+error:
+
+```py
+w3 = Web3(FallbackProvider(endpoints, cooldown_seconds=60, cooldown_on=lambda error: True))
 ```
 
 ### `AsyncMultiProvider` and `AsyncFallbackProvider`
@@ -109,6 +124,7 @@ w3 = Web3(MultiProvider([
 | `http_rpc_request_payload_bytes` | Histogram | Request payload size |
 | `http_rpc_response_payload_bytes` | Histogram | Response payload size |
 | `rpc_request` | Counter | RPC calls by method and result |
+| `http_rpc_provider_cooldown_events` | Counter | Endpoint cooldown transitions by provider: `entered`, `probe_failed`, `recovered` |
 
 #### Custom configuration
 
