@@ -3,6 +3,7 @@ from .exceptions import (
     ChainIdMismatchError,
     NoActiveProviderError,
     ProtocolNotSupported,
+    ProviderRequestError,
 )
 from .http_session_manager_proxy import HTTPSessionManagerProxy
 from .metrics import init_metrics
@@ -16,6 +17,7 @@ __all__ = (
     "ChainIdMismatchError",
     "NoActiveProviderError",
     "ProtocolNotSupported",
+    "ProviderRequestError",
     "HTTPSessionManagerProxy",
     "init_metrics",
 )

@@ -16,7 +16,11 @@ from web3_multi_provider.exceptions import (
 )
 from web3_multi_provider.http_provider_proxy import HTTPProviderProxy
 from web3_multi_provider.metrics import warn_if_prometheus_not_initialized
-from web3_multi_provider.util import sanitize_poa_response
+from web3_multi_provider.util import (
+    redact_endpoint,
+    redacted_error,
+    sanitize_poa_response,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,19 +73,21 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
         """
         chain_ids: dict[str, list[str]] = {}
 
-        for provider in self._providers:
+        # Endpoints are named by their position in endpoint_urls: the URLs carry API keys.
+        for index, provider in enumerate(self._providers):
             if hasattr(provider, "_chain_id") and provider._chain_id:
                 chain_id = provider._chain_id
-                endpoint_uri = str(provider.endpoint_uri)
 
                 if chain_id not in chain_ids:
                     chain_ids[chain_id] = []
-                chain_ids[chain_id].append(endpoint_uri)
+                chain_ids[chain_id].append(f"#{index}")
 
         if len(chain_ids) > 1:
             mismatches = []
             for chain_id, endpoints in chain_ids.items():
-                mismatches.append(f"Chain ID {chain_id}: {', '.join(endpoints)}")
+                mismatches.append(
+                    f"Chain ID {chain_id}: endpoints {', '.join(endpoints)}"
+                )
 
             raise ChainIdMismatchError(
                 f"Providers have different chain IDs:\n" + "\n".join(mismatches)
@@ -110,14 +116,12 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
                 try:
                     response = provider.make_request(method, params)
                 except Exception as error:  # pylint: disable=broad-except
-                    exceptions.append(error)
+                    exceptions.append(redacted_error(error, provider.endpoint_uri))
                     logger.warning(
                         {
                             "msg": "Provider not responding.",
                             "index": index,
-                            "error": str(error).replace(
-                                str(provider.endpoint_uri), "****"
-                            ),
+                            "error": redact_endpoint(str(error), provider.endpoint_uri),
                         }
                     )
                 else:
