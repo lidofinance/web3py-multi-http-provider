@@ -14,6 +14,10 @@ from web3._utils.http_session_manager import HTTPSessionManager
 from web3_multi_provider import metrics
 from web3_multi_provider.metrics import _DummyMetric
 
+# The metric objects are package-private module globals in `metrics`, replaced
+# by init_metrics(); they must be read through the module at call time.
+# pylint: disable=protected-access
+
 logger = logging.getLogger(__name__)
 
 
@@ -91,7 +95,8 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         ),
         # Rule: Peer identifiers
         (lambda seg, prev_seg, prev2_seg: prev_seg == "peers", "{peer_id}"),
-        # Rule: Epoch numbers - duties, rewards, liveness endpoints (must come before validator check)
+        # Rule: Epoch numbers - duties, rewards, liveness endpoints
+        # (must come before validator check)
         (
             lambda seg, prev_seg, prev2_seg: (
                 prev_seg
@@ -151,7 +156,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
         (lambda seg, prev_seg, prev2_seg: seg.isdigit(), "{id}"),
     ]
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         chain_id: int | str,
         uri: str,
@@ -221,7 +226,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
 
             return "/" + "/".join(normalized_segments)
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.debug("Error normalizing CL path: %s", e, exc_info=True)
             return None
 
@@ -255,12 +260,13 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                         methods.append(item["method"])
             elif isinstance(payload, dict) and isinstance(payload.get("method"), str):
                 methods.append(payload["method"])
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             if isinstance(metrics._RPC_REQUEST, _DummyMetric):
                 logger.debug("Error extracting methods", exc_info=True)
             else:
                 logger.warning(
-                    "Failed to extract methods for RPC request metrics despite metrics being initialized",
+                    "Failed to extract methods for RPC request metrics "
+                    "despite metrics being initialized",
                     exc_info=True,
                 )
 
@@ -283,7 +289,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                 metrics._RPC_SERVICE_REQUEST_PAYLOAD_BYTES.labels(
                     self._network, self._layer, self._chain_id, self._uri
                 ).observe(size)
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             if isinstance(metrics._RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _DummyMetric):
                 logger.debug("Error observing request payload", exc_info=True)
             else:
@@ -300,7 +306,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                 metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES.labels(
                     self._network, self._layer, self._chain_id, self._uri
                 ).observe(size)
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             if isinstance(metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES, _DummyMetric):
                 logger.debug("Error observing response payload", exc_info=True)
             else:
@@ -315,7 +321,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                 metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES.labels(
                     self._network, self._layer, self._chain_id, self._uri
                 ).observe(int(response.content_length))
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             if isinstance(metrics._RPC_SERVICE_RESPONSE_PAYLOAD_BYTES, _DummyMetric):
                 logger.debug("Error observing response payload", exc_info=True)
             else:
@@ -340,7 +346,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     http_success,
                     error_code,
                 ).inc()
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             if isinstance(metrics._RPC_REQUEST, _DummyMetric):
                 logger.debug("Error recording RPC request", exc_info=True)
             else:
@@ -410,7 +416,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     metrics._HTTP_RPC_BATCH_SIZE.labels(
                         self._network, self._layer, self._chain_id, self._uri
                     ).observe(int(batch_size_hint))
-                except Exception:
+                except Exception:  # pylint: disable=broad-exception-caught
                     if isinstance(metrics._HTTP_RPC_BATCH_SIZE, _DummyMetric):
                         logger.debug("Error observing batch size", exc_info=True)
                     else:
@@ -478,7 +484,7 @@ class HTTPSessionManagerProxy(HTTPSessionManager):
                     metrics._HTTP_RPC_BATCH_SIZE.labels(
                         self._network, self._layer, self._chain_id, self._uri
                     ).observe(int(batch_size_hint))
-                except Exception:
+                except Exception:  # pylint: disable=broad-exception-caught
                     if isinstance(metrics._HTTP_RPC_BATCH_SIZE, _DummyMetric):
                         logger.debug("Error observing batch size", exc_info=True)
                     else:

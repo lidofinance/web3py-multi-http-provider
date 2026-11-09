@@ -69,8 +69,9 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
         chain_ids: dict[str, list[str]] = {}
 
         for provider in self._providers:
-            if hasattr(provider, "_chain_id") and provider._chain_id:
-                chain_id = provider._chain_id
+            # Set lazily by the provider proxy on its first request.
+            chain_id = getattr(provider, "_chain_id", "")
+            if chain_id:
                 endpoint_uri = str(provider.endpoint_uri)
 
                 if chain_id not in chain_ids:
@@ -83,7 +84,7 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
                 mismatches.append(f"Chain ID {chain_id}: {', '.join(endpoints)}")
 
             raise ChainIdMismatchError(
-                f"Providers have different chain IDs:\n" + "\n".join(mismatches)
+                "Providers have different chain IDs:\n" + "\n".join(mismatches)
             )
 
     async def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
@@ -139,6 +140,7 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
 
     @abstractmethod
     def get_providers(self) -> Iterable[AsyncHTTPProvider]:
+        """Return the providers to try for one request, in order."""
         raise NotImplementedError
 
 
