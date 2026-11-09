@@ -117,7 +117,7 @@ class HTTPProviderProxy(HTTPProvider):
         self, batch_requests: List[Tuple[RPCEndpoint, Any]]
     ) -> Union[List[RPCResponse], RPCResponse]:
         self._ensure_chain_info_initialized()
-        self.logger.debug(f"Making batch request HTTP, uri: `{self.endpoint_uri}`")
+        self.logger.debug(f"Making batch request HTTP, uri: `{self._uri}`")
         request_data = self.encode_batch_rpc_request(batch_requests)
         raw_response = self._request_session_manager.make_post_request(
             self.endpoint_uri,  # type: ignore
