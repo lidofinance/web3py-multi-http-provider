@@ -1,30 +1,31 @@
 fail_fast: true
 repos:
+  # Hooks run inside the Poetry environment so they use the versions pinned in
+  # poetry.lock and see the installed dependencies (mypy and pylint need web3
+  # to type-check and infer). Requires `poetry install --with dev` first.
   - repo: local
     hooks:
-      - id: system
+      - id: black
         name: Black
         entry: poetry run black web3_multi_provider
-        pass_filenames: false
         language: system
-  - repo: local
-    hooks:
-      - id: system
+        types: [python]
+        pass_filenames: false
+      - id: isort
         name: isort
         entry: poetry run isort web3_multi_provider
-        pass_filenames: false
         language: system
-  - repo: local
-    hooks:
-      - id: system
+        types: [python]
+        pass_filenames: false
+      - id: mypy
         name: MyPy
         entry: poetry run mypy web3_multi_provider
-        pass_filenames: false
         language: system
-  - repo: local
-    hooks:
-      - id: system
+        types: [python]
+        pass_filenames: false
+      - id: pylint
         name: Pylint
         entry: poetry run pylint -j 0 web3_multi_provider
-        pass_filenames: false
         language: system
+        types: [python]
+        pass_filenames: false

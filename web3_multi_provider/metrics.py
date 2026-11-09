@@ -26,6 +26,8 @@ _DEFAULT_CHAIN_ID_TO_NAME: Final = {
 
 @dataclasses.dataclass
 class MetricsConfig:
+    """Settings for init_metrics(): metric name prefix and chain ID labels."""
+
     namespace: str = ""
     chain_id_to_name: dict[int, str] = dataclasses.field(
         default_factory=_DEFAULT_CHAIN_ID_TO_NAME.copy,
@@ -35,18 +37,22 @@ class MetricsConfig:
 class _DummyMetric:
     """No-op metric used before initialization or in tests."""
 
-    def labels(self, *args: object, **kwargs: object) -> "_DummyMetric":
+    def labels(self, *_args: object, **_kwargs: object) -> "_DummyMetric":
+        """Return self so that chained calls stay no-ops."""
         return self
 
-    def inc(self, *args: object, **kwargs: object) -> None:  # pragma: no cover
+    def inc(self, *_args: object, **_kwargs: object) -> None:  # pragma: no cover
+        """Do nothing."""
         return None
 
-    def observe(self, *args: object, **kwargs: object) -> None:  # pragma: no cover
+    def observe(self, *_args: object, **_kwargs: object) -> None:  # pragma: no cover
+        """Do nothing."""
         return None
 
 
 def _init_prometheus_metrics(registry=None) -> dict[str, Callable[..., Any]]:
     # Import inside to avoid mandatory dependency at import time
+    # pylint: disable-next=import-outside-toplevel
     from prometheus_client import REGISTRY, Counter, Histogram
 
     reg = registry or REGISTRY
@@ -62,6 +68,8 @@ _metrics_initialized: bool = False
 def warn_if_prometheus_not_initialized() -> None:
     """Warn if prometheus_client is installed but init_metrics() has not been called."""
     try:
+        # Optional dependency: only probe whether it is installed.
+        # pylint: disable-next=import-outside-toplevel,unused-import
         import prometheus_client  # noqa: F401
     except ImportError:
         return
@@ -86,10 +94,20 @@ _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES: Any = _DummyMetric()
 def init_metrics(
     metrics_config: MetricsConfig = MetricsConfig(), registry=None
 ) -> None:
+    """Create the Prometheus metrics and replace the no-op placeholders.
+
+    Requires prometheus-client. Pass ``registry`` to register the metrics
+    somewhere other than the default prometheus_client registry.
+    """
     _prom = _init_prometheus_metrics(registry)
+    # The metrics are module-level singletons swapped in place, so that callers
+    # reading ``metrics.<NAME>`` at call time pick up the initialized objects.
+    # pylint: disable=global-statement
     global _metrics_initialized, _HTTP_RPC_SERVICE_REQUESTS, _HTTP_RPC_BATCH_SIZE
-    global _RPC_REQUEST, _RPC_SERVICE_RESPONSE_SECONDS, _RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES
+    global _RPC_REQUEST, _RPC_SERVICE_RESPONSE_SECONDS
+    global _RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES
     global _CHAIN_ID_TO_NAME
+    # pylint: enable=global-statement
 
     counter: Any = _prom["Counter"]
     histogram: Any = _prom["Histogram"]

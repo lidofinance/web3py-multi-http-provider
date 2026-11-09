@@ -31,7 +31,7 @@ class HTTPProviderProxy(HTTPProvider):
         _request_session_manager (HTTPSessionManagerProxy): Manages HTTP sessions per endpoint.
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         endpoint_uri: Optional[Union[URI, str]] = None,
         request_kwargs: Optional[Any] = None,
@@ -81,6 +81,7 @@ class HTTPProviderProxy(HTTPProvider):
         if self._chain_id != "":
             return
         self._chain_id = str(self._fetch_chain_id())
+        # pylint: disable-next=protected-access
         self._network = metrics._CHAIN_ID_TO_NAME.get(int(self._chain_id), "unknown")
         self._request_session_manager = HTTPSessionManagerProxy(
             chain_id=self._chain_id,
@@ -116,14 +117,18 @@ class HTTPProviderProxy(HTTPProvider):
     def make_batch_request(
         self, batch_requests: List[Tuple[RPCEndpoint, Any]]
     ) -> Union[List[RPCResponse], RPCResponse]:
+        """
+        Makes a batch RPC request through the metrics-aware session manager.
+        """
         self._ensure_chain_info_initialized()
-        self.logger.debug(f"Making batch request HTTP, uri: `{self.endpoint_uri}`")
+        self.logger.debug("Making batch request HTTP, uri: `%s`", self.endpoint_uri)
         request_data = self.encode_batch_rpc_request(batch_requests)
         raw_response = self._request_session_manager.make_post_request(
             self.endpoint_uri,  # type: ignore
             request_data,
             _batch_size=len(batch_requests),
-            **self.get_request_kwargs(),
+            # get_request_kwargs() is wrapped in @to_dict upstream, as web3 itself uses it.
+            **self.get_request_kwargs(),  # pylint: disable=not-a-mapping
         )
         self.logger.debug("Received batch response HTTP.")
         response = self.decode_rpc_response(raw_response)
