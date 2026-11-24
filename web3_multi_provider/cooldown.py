@@ -38,27 +38,30 @@ class ProviderCooldown:
         """Endpoint indexes in configured order, with cooling endpoints moved to the end.
 
         Cooling endpoints are kept, so a request never has fewer endpoints to try than without
-        a cooldown. Each index appears exactly once.
+        a cooldown. Each index appears exactly once. Cooling endpoints are ordered by when their
+        cooldown ends: the endpoint that failed longest ago is the most likely to have recovered.
         """
         with self._lock:
             now = time.monotonic()
             healthy: list[int] = []
-            cooling: list[int] = []
+            cooling: list[tuple[float, int]] = []
             for index in range(count):
                 until = self._until.get(index)
                 if until is None:
                     healthy.append(index)
                 elif until > now:
-                    cooling.append(index)
+                    cooling.append((until, index))
                 else:
                     self._start_probe(index, now)
                     healthy.append(index)
-            return healthy + cooling
+            return healthy + [index for _, index in sorted(cooling)]
 
     def _start_probe(self, index: int, now: float) -> None:
         # Re-arm the cooldown before the probe runs, so concurrent requests keep the endpoint
         # last. A probe that never reports back (the request was cancelled, or an earlier
-        # endpoint answered first) only delays the next probe by one window.
+        # endpoint answered first) only delays the next probe by one window. Because `order`
+        # sorts cooling endpoints by `_until`, such an endpoint still comes before endpoints
+        # that failed after it, so it is not stuck behind endpoints that are actually down.
         self._until[index] = now + self._seconds
         self._probing.add(index)
 

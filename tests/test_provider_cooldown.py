@@ -126,20 +126,29 @@ class TestProviderCooldown:
         with pytest.raises(ValueError):
             ProviderCooldown(seconds)
 
-    def test_order_lists_each_endpoint_once_when_a_failure_lands_mid_scan(self):
-        class FailsDuringScan(dict):
-            """Another thread marks endpoint 0 failed right after the scan has read it."""
-
-            def get(self, key, default=None):
-                value = super().get(key, default)
-                if key == 0:
-                    self[0] = time.monotonic() + COOLDOWN
-                return value
-
+    def test_unreached_probe_does_not_keep_endpoint_behind_later_failures(self):
         cooldown = ProviderCooldown(COOLDOWN)
-        cooldown._until = FailsDuringScan()
+        now = [1000.0]
+        with patch("web3_multi_provider.cooldown.time.monotonic", side_effect=lambda: now[0]):
+            cooldown.mark_failed(2)
+            for _ in range(5):  # endpoint 0 answers; endpoint 2's probe is claimed but never runs
+                now[0] += COOLDOWN + 1
+                cooldown.order(3)
+                cooldown.mark_succeeded(0)
+            now[0] += 1
+            cooldown.mark_failed(0)
+            cooldown.mark_failed(1)
 
-        assert cooldown.order(2) == [0, 1]
+            assert cooldown.order(3) == [2, 0, 1]
+
+    def test_endpoint_from_outside_the_configured_list_is_still_tried(self):
+        provider = _fallback(DOWN)
+        outsider = Mock()
+        outsider.make_request = Mock(return_value=OK)
+        provider.get_providers = lambda: [*provider._providers, outsider]
+
+        assert _request(provider) == OK
+        assert outsider.make_request.call_count == 1
 
     def test_failure_log_names_the_endpoint_not_its_position(self, caplog):
         provider = _fallback(DOWN, OK)
@@ -244,6 +253,16 @@ class TestAsyncProviderCooldown:
                 await _async_request(provider)
 
         assert [r.msg["index"] for r in caplog.records if r.name.endswith("multi_http_provider")] == [1, 0]
+
+    @pytest.mark.asyncio
+    async def test_endpoint_from_outside_the_configured_list_is_still_tried(self):
+        provider = _async_fallback(DOWN)
+        outsider = Mock()
+        outsider.make_request = AsyncMock(return_value=OK)
+        provider.get_providers = lambda: [*provider._providers, outsider]
+
+        assert await _async_request(provider) == OK
+        assert outsider.make_request.await_count == 1
 
     @pytest.mark.asyncio
     async def test_concurrent_requests_send_one_probe_when_cooldown_ends(self):

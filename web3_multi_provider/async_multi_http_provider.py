@@ -58,6 +58,7 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
             )
             self._providers.append(provider)
 
+        self._provider_indexes = {id(p): i for i, p in enumerate(self._providers)}
         super().__init__()
 
     def _validate_chain_ids(self) -> None:
@@ -107,7 +108,9 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
         exceptions: list[Exception] = []
         try:
             for provider in provider_iter:
-                index = self._endpoint_index(provider)
+                # None for an endpoint that a subclass yields from outside the configured
+                # list: it is still tried, but its cooldown is not tracked.
+                index = self._provider_indexes.get(id(provider))
                 try:
                     response = await provider.make_request(method, params)
                 except Exception as error:  # pylint: disable=broad-except
@@ -121,9 +124,11 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
                             ),
                         }
                     )
-                    self._on_provider_failure(index)
+                    if index is not None:
+                        self._on_provider_failure(index)
                 else:
-                    self._on_provider_success(index)
+                    if index is not None:
+                        self._on_provider_success(index)
                     sanitize_poa_response(method, response)
                     logger.debug(
                         {
@@ -140,13 +145,6 @@ class AsyncBaseMultiProvider(AsyncJSONBaseProvider, ABC):
         finally:
             # Break explicitly a reference cycle, as socket.create_connection does
             exceptions.clear()
-
-    def _endpoint_index(self, provider: AsyncHTTPProvider) -> int:
-        """Position of `provider` in the configured endpoint list, for logs and cooldowns.
-
-        `get_providers` may reorder endpoints, so the position in the iteration is not it.
-        """
-        return next(i for i, p in enumerate(self._providers) if p is provider)
 
     def _on_provider_failure(self, index: int) -> None:
         """Called after the endpoint at `index` raised on a request."""

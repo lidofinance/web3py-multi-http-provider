@@ -57,6 +57,11 @@ first again; concurrent requests keep it last until that request finishes. If it
 cooldown starts. An endpoint that answers, including one tried last, is first again at once. The
 default `0` disables the cooldown.
 
+Any exception from an endpoint starts its cooldown, including errors that the request itself
+causes, such as a timeout or HTTP 413 on a heavy `eth_getLogs`. A JSON-RPC error in an HTTP 200
+response (for example, a rate limit reported as error `-32005`) is a valid answer and does not start
+a cooldown.
+
 ```py
 w3 = Web3(FallbackProvider([
     'http://127.0.0.1:8000/',
