@@ -9,6 +9,7 @@ from web3.providers import JSONBaseProvider
 from web3.providers.rpc.utils import ExceptionRetryConfiguration
 from web3.types import RPCEndpoint, RPCResponse
 
+from web3_multi_provider.cooldown import ProviderCooldown
 from web3_multi_provider.exceptions import (
     ChainIdMismatchError,
     NoActiveProviderError,
@@ -58,6 +59,7 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
             )
             self._providers.append(provider)
 
+        self._provider_indexes = {id(p): i for i, p in enumerate(self._providers)}
         super().__init__()
 
     def _validate_chain_ids(self) -> None:
@@ -97,8 +99,8 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
         self._validate_chain_ids()
         return response
 
-    @staticmethod
     def _make_request_with_failover(  # pylint: disable=inconsistent-return-statements
+        self,
         method: RPCEndpoint,
         params: Any,
         provider_name: str,
@@ -106,7 +108,10 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
     ) -> RPCResponse:
         exceptions: list[Exception] = []
         try:
-            for index, provider in enumerate(provider_iter):
+            for provider in provider_iter:
+                # None for an endpoint that a subclass yields from outside the configured
+                # list: it is still tried, but its cooldown is not tracked.
+                index = self._provider_indexes.get(id(provider))
                 try:
                     response = provider.make_request(method, params)
                 except Exception as error:  # pylint: disable=broad-except
@@ -120,7 +125,11 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
                             ),
                         }
                     )
+                    if index is not None:
+                        self._on_provider_failure(index)
                 else:
+                    if index is not None:
+                        self._on_provider_success(index)
                     sanitize_poa_response(method, response)
                     logger.debug(
                         {
@@ -137,6 +146,12 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
         finally:
             # Break explicitly a reference cycle, as socket.create_connection does
             exceptions.clear()
+
+    def _on_provider_failure(self, index: int) -> None:
+        """Called after the endpoint at `index` raised on a request."""
+
+    def _on_provider_success(self, index: int) -> None:
+        """Called after the endpoint at `index` answered a request."""
 
     @abstractmethod
     def get_providers(self) -> Iterable[HTTPProvider]:
@@ -160,7 +175,23 @@ class MultiProvider(BaseMultiProvider):
 
 
 class FallbackProvider(BaseMultiProvider):
-    """Basic fallback provider: tries each provider once, in order."""
+    """Fallback provider: tries each provider once, in order.
+
+    With `cooldown_seconds` > 0, a provider that failed is tried after the others until its
+    cooldown ends.
+    """
+
+    def __init__(self, *args: Any, cooldown_seconds: float = 0, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self._cooldown = ProviderCooldown(cooldown_seconds)
 
     def get_providers(self) -> Iterable[HTTPProvider]:
-        return iter(self._providers)
+        if not self._cooldown.enabled:
+            return iter(self._providers)
+        return [self._providers[i] for i in self._cooldown.order(len(self._providers))]
+
+    def _on_provider_failure(self, index: int) -> None:
+        self._cooldown.mark_failed(index)
+
+    def _on_provider_success(self, index: int) -> None:
+        self._cooldown.mark_succeeded(index)
