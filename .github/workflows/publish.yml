@@ -1,66 +1,60 @@
-name: Python package
+name: Publish
+
 on:
   release:
-    types: [published]   # run when the release is published
+    types: [published]
+
+permissions:
+  contents: read
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Must match the environment of the trusted publisher on PyPI.
     environment: release
     permissions:
+      contents: read
+      # PyPI trusted publishing (the OIDC token replaces an API token) and the Sigstore signing of the attestations.
       id-token: write
-      contents: read 
-    outputs:
-      version: ${{ steps.extract-version.outputs.version }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup Python and Poetry
+        uses: ./.github/actions/setup
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
-      - name: Setup poetry
-        run: |
-          curl -sSL https://install.python-poetry.org/ | python - && echo "$HOME/.poetry/bin" >> $GITHUB_PATH
+      - name: Set the version from the release tag
+        # The releases are tagged v<version>, as v2.3.0 for version 2.3.0.
         env:
-          POETRY_VERSION: 1.8.2
-
-      - name: Install dependencies
+          TAG: ${{ github.event.release.tag_name }}
         run: |
-          poetry install
+          poetry version "${TAG#v}"
+          echo "Building version $(poetry version -s)"
 
-      - name: Set version from release tag
+      - name: Build
+        run: poetry build --no-interaction
+
+      - name: Install the publish tools
+        # Release-only tools, in their own venv outside the lock file. Poetry cannot upload attestations, twine can.
         run: |
-          TAG="${{ github.event.release.tag_name }}"
-          VERSION="${TAG#v}"
-          poetry version "$VERSION"
-          echo "Building version: $VERSION"
+          python -m venv "$RUNNER_TEMP/publish"
+          "$RUNNER_TEMP/publish/bin/pip" install --quiet "pypi-attestations==0.0.30" "twine==7.0.0"
 
-      - name: Extract version
-        id: extract-version
+      - name: Sign the distributions
+        # PEP 740 attestations, signed by Sigstore with the OIDC identity of this job (the same workflow and
+        # environment as the trusted publisher). Writes dist/<file>.publish.attestation next to every file.
+        timeout-minutes: 5
         run: |
-          echo "version=$(poetry version -s)" >> $GITHUB_OUTPUT
+          "$RUNNER_TEMP/publish/bin/python" -m pypi_attestations sign dist/*.whl dist/*.tar.gz
+          ls -l dist/
 
-      - name: Build distribution
+      - name: Publish to PyPI
         run: |
-          poetry build --no-interaction
-
-      - name: Get OIDC token and publish to PyPI
-        run: |
-          # Setup OIDC token (sets OIDC_TOKEN and TOKEN_EXCHANGE_URL environment variables)
-          source .github/scripts/setup_oidc_token.sh pypi.org
-          
-          # Install dependencies
-          pip install twine requests
-          
-          # Exchange token and upload using shared script
-          python3 .github/scripts/pypi_oidc_upload.py \
-            --repository-url "https://upload.pypi.org/legacy/"
-
-      - name: Success message
-        run: echo "ℹ️ Published version ${{ steps.extract-version.outputs.version }} 🎉"
+          TWINE_PASSWORD=$(.github/scripts/pypi_oidc_token.sh pypi.org)
+          export TWINE_PASSWORD TWINE_USERNAME=__token__
+          "$RUNNER_TEMP/publish/bin/twine" upload --non-interactive --attestations dist/*
