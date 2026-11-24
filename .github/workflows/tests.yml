@@ -24,3 +24,18 @@ jobs:
     - name: Test with pytest
       run: |
         poetry run pytest --cov=web3_multi_provider -m "not integration" tests
+
+  pre-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Setup Python and Poetry
+      uses: ./.github/actions/setup
+      with:
+        python-version: '3.12'
+
+    - name: Run pre-commit hooks
+      run: |
+        poetry run pre-commit run --all-files --show-diff-on-failure

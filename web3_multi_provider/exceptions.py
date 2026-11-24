@@ -8,12 +8,14 @@ class NoActiveProviderError(ExceptionGroup):
     def from_exceptions(
         cls, message: str, exceptions: Sequence[Exception]
     ) -> Exception:
+        """Build the error to raise when every provider failed.
+
+        Returns a RuntimeError instead when no provider was called at all,
+        because an ExceptionGroup cannot be empty.
+        """
         if exceptions:
             return cls(message, exceptions)
-        else:
-            return RuntimeError(
-                "No providers were called"
-            )  # or a fallback custom Exception
+        return RuntimeError("No providers were called")
 
 
 class ProtocolNotSupported(Exception):
