@@ -121,9 +121,7 @@ class BaseMultiProvider(JSONBaseProvider, ABC):
                         {
                             "msg": "Provider not responding.",
                             "index": index,
-                            "error": str(error).replace(
-                                str(provider.endpoint_uri), "****"
-                            ),
+                            "error": str(error),
                         }
                     )
                     if index is not None:

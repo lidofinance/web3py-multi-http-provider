@@ -1,23 +1,35 @@
-# <img src="https://docs.lido.fi/img/logo.svg" alt="Lido" width="46"/> Web3 Multi Provider
+# <img src="https://raw.githubusercontent.com/lidofinance/web3py-multi-http-provider/main/docs/logo.svg" height="70px" align="center" alt="Lido Logo"/> Web3 Multi Provider
 
+[![PyPI](https://img.shields.io/pypi/v/web3-multi-provider.svg)](https://pypi.org/project/web3-multi-provider/)
+[![Python](https://img.shields.io/pypi/pyversions/web3-multi-provider.svg)](https://pypi.org/project/web3-multi-provider/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Provider that accepts multiple endpoints.
+[web3.py](https://github.com/ethereum/web3.py) HTTP providers that accept a list of RPC endpoints and fail over
+to the next one when an endpoint errors, so the application stays online while a node is down.
+
+Requires Python 3.12+ and web3.py 7.
 
 ## Install
 
+The package is on PyPI as [`web3-multi-provider`](https://pypi.org/project/web3-multi-provider/):
+
 ```bash
-$ pip install web3-multi-provider
+pip install web3-multi-provider
+# or
+poetry add web3-multi-provider
 ```
-or
+
+With Prometheus metrics:
+
 ```bash
-$ poetry add web3-multi-provider
+pip install "web3-multi-provider[metrics]"
+# or
+poetry add "web3-multi-provider[metrics]"
 ```
-or with metrics:
-```bash
-$ poetry add web3-multi-provider[metrics]
-```
+
+Releases after 2.3.0 are published from GitHub Actions with [PEP 740](https://peps.python.org/pep-0740/)
+attestations, see [Verify a release](#verify-a-release).
 
 ## Usage
 
@@ -48,7 +60,8 @@ It fails if no endpoints are available.
 
 ### `FallbackProvider`
 
-This provider sends requests to the all endpoints in the sequence until response received or endpoints list exhausted.
+This provider sends each request to the endpoints in the given order until a response is received or the
+endpoints list is exhausted.
 
 A failing endpoint is slow to fail over from: web3 retries it before the next endpoint is tried. Pass
 `cooldown_seconds` to try an endpoint that failed after the other endpoints until its cooldown ends.
@@ -84,6 +97,14 @@ w3 = AsyncWeb3(AsyncMultiProvider([  # RPC endpoints list
 ]))
 ```
 
+### Errors
+
+- `NoActiveProviderError` (an `ExceptionGroup`) is raised when every endpoint failed; it holds the error of
+  each endpoint.
+- `ChainIdMismatchError` is raised when the endpoints report different chain IDs. Each endpoint fetches its
+  chain ID with `eth_chainId` on its first request, not when the provider is created.
+- `ProtocolNotSupported` is raised on creation for a non-HTTP endpoint.
+
 ### Metrics
 
 The library has built-in Prometheus metrics. They are disabled by default — install the extra and call `init_metrics()` before creating any provider.
@@ -106,14 +127,14 @@ w3 = Web3(MultiProvider([
 
 `init_metrics()` registers the following metrics with the default Prometheus registry:
 
-| Metric | Type | Description |
-|---|---|---|
-| `http_rpc_requests` | Counter | Total HTTP requests by network, provider, response code, result |
-| `http_rpc_batch_size` | Histogram | Distribution of batch sizes |
-| `http_rpc_response_seconds` | Histogram | RPC response time |
-| `http_rpc_request_payload_bytes` | Histogram | Request payload size |
-| `http_rpc_response_payload_bytes` | Histogram | Response payload size |
-| `rpc_request` | Counter | RPC calls by method and result |
+| Metric                            | Type      | Description                                                     |
+|-----------------------------------|-----------|-----------------------------------------------------------------|
+| `http_rpc_requests`               | Counter   | Total HTTP requests by network, provider, response code, result |
+| `http_rpc_batch_size`             | Histogram | Distribution of batch sizes                                     |
+| `http_rpc_response_seconds`       | Histogram | RPC response time                                               |
+| `http_rpc_request_payload_bytes`  | Histogram | Request payload size                                            |
+| `http_rpc_response_payload_bytes` | Histogram | Response payload size                                           |
+| `rpc_request`                     | Counter   | RPC calls by method and result                                  |
 
 #### Custom configuration
 
@@ -144,12 +165,27 @@ registry = CollectorRegistry()
 init_metrics(registry=registry)
 ```
 
+## Verify a release
+
+The wheel and the sdist on PyPI carry attestations signed by Sigstore with the identity of the
+`publish.yml` workflow of this repository. PyPI shows them on the
+[files page](https://pypi.org/project/web3-multi-provider/#files) of a version. To verify a file:
+
+```bash
+pip install pypi-attestations
+python -m pypi_attestations verify pypi \
+  --repository https://github.com/lidofinance/web3py-multi-http-provider \
+  pypi:web3_multi_provider-<version>-py3-none-any.whl
+```
+
+A local file (from `pip download --no-deps web3-multi-provider==<version>`) can be passed by its path instead.
+
 ## For developers
 
 This project requires a specific Poetry version, pinned in `.poetry-version`. To install it:
 
 ```bash
-POETRY_VERSION=$(cat .poetry-version) curl -sSL https://install.python-poetry.org/ | python -
+pipx install "poetry==$(cat .poetry-version)"
 ```
 
 ### Requirements
@@ -176,5 +212,21 @@ Alternatively, without Docker:
 ## Tests
 
 ```bash
-poetry run pytest tests
+poetry run pytest -m "not integration" tests
 ```
+
+The integration tests call real RPC endpoints, set as a comma-separated list in
+`WEB3_MULTI_PROVIDER_INTEGRATION_RPC_URLS`:
+
+```bash
+WEB3_MULTI_PROVIDER_INTEGRATION_RPC_URLS=https://...,https://... \
+  poetry run pytest -m integration tests/test_integration_http_provider.py
+```
+
+## Release
+
+1. Merge the changes to `main`. Every push to `main` publishes a `.dev` build to
+   [TestPyPI](https://test.pypi.org/project/web3-multi-provider/).
+2. Publish a GitHub release tagged `v<version>`, as `v2.3.1`. The `Publish` workflow sets the package
+   version from the tag, builds, signs the distributions and uploads them with their attestations to PyPI
+   through trusted publishing (environment `release`).

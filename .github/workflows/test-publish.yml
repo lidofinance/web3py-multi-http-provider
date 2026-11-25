@@ -1,78 +1,58 @@
 name: Test PyPI Publishing
+
 on:
   workflow_dispatch:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   test-publish:
     runs-on: ubuntu-latest
+    # Must match the environment of the trusted publisher on TestPyPI.
     environment: testpypi
     permissions:
-      id-token: write
       contents: read
-    
+      # TestPyPI trusted publishing and the Sigstore signing of the attestations.
+      id-token: write
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          python-version: "3.12"
+          persist-credentials: false
 
-      - name: Setup poetry
+      - name: Setup Python and Poetry
+        uses: ./.github/actions/setup
+        with:
+          python-version: '3.12'
+
+      - name: Set a unique dev version
+        # PyPI rejects local versions (with +) and reuploads, so every publish gets its own .devN:
+        # 2.3.0 -> 2.3.1.dev<epoch seconds modulo 10 million>.
         run: |
-          curl -sSL https://install.python-poetry.org/ | python - && echo "$HOME/.poetry/bin" >> $GITHUB_PATH
-        env:
-          POETRY_VERSION: 1.8.2
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$(poetry version -s)"
+          poetry version "${MAJOR}.${MINOR}.$((PATCH + 1)).dev$(( $(date +%s) % 10000000 ))"
+          echo "Building version $(poetry version -s)"
 
-      - name: Install dependencies
+      - name: Build
+        run: poetry build --no-interaction
+
+      - name: Install the publish tools
         run: |
-          poetry install
+          python -m venv "$RUNNER_TEMP/publish"
+          "$RUNNER_TEMP/publish/bin/pip" install --quiet "pypi-attestations==0.0.30" "twine==7.0.0"
 
-      - name: Extract version
-        id: extract-version
+      - name: Sign the distributions
+        timeout-minutes: 5
         run: |
-          BASE_VERSION=$(poetry version -s)
-          # For test publishes, use dev version with a unique number per commit
-          # PyPI doesn't allow local versions (with +), so we use .devN format
-          # Use epoch seconds as dev number for uniqueness (modulo to keep it reasonable)
-          TIMESTAMP=$(date +%s)
-          DEV_NUMBER=$((TIMESTAMP % 10000000))  # Keep it under 10 million
-          # Use dev version format: 2.2.2 -> 2.2.3.dev1234567 (increment patch, add dev number)
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
-          TEST_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1)).dev${DEV_NUMBER}"
-          echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
-          echo "version=$TEST_VERSION" >> $GITHUB_OUTPUT
-          echo "test_version=$TEST_VERSION" >> $GITHUB_OUTPUT
+          "$RUNNER_TEMP/publish/bin/python" -m pypi_attestations sign dist/*.whl dist/*.tar.gz
+          ls -l dist/
 
-      - name: Set test version
+      - name: Publish to TestPyPI
         run: |
-          # Temporarily set version with dev version + commit SHA for test publish
-          poetry version ${{ steps.extract-version.outputs.test_version }}
-
-      - name: Build distribution
-        run: |
-          poetry build --no-interaction
-
-      - name: Check if distributions exist
-        run: |
-          ls -la dist/
-          echo "✅ Distributions built successfully"
-
-      - name: Get OIDC token and publish to TestPyPI
-        run: |
-          # Setup OIDC token (sets OIDC_TOKEN and TOKEN_EXCHANGE_URL environment variables)
-          source .github/scripts/setup_oidc_token.sh test.pypi.org
-          
-          # Install dependencies
-          pip install twine requests
-          
-          # Exchange token and upload using shared script
-          # No --skip-existing needed since each commit has a unique version
-          python3 .github/scripts/pypi_oidc_upload.py \
-            --repository-url "https://test.pypi.org/legacy/"
-
-      - name: Success message
-        run: echo "ℹ️ Test publish completed for version ${{ steps.extract-version.outputs.version }} 🎉"
+          TWINE_PASSWORD=$(.github/scripts/pypi_oidc_token.sh test.pypi.org)
+          export TWINE_PASSWORD TWINE_USERNAME=__token__
+          "$RUNNER_TEMP/publish/bin/twine" upload --non-interactive --attestations \
+            --repository-url https://test.pypi.org/legacy/ dist/*
