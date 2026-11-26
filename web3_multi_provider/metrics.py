@@ -177,15 +177,17 @@ def init_metrics(
         namespace=metrics_config.namespace,
     )
 
-    # Labelled by provider only: network and chain_id are unknown until an endpoint
-    # answers, and an endpoint can go on cooldown before it ever has.
+    # Labelled by provider and endpoint index, not network or chain_id: those are unknown
+    # until an endpoint answers, and an endpoint can go on cooldown before it ever has.
+    # The provider label keeps only the domain, so endpoints of one vendor share it; the
+    # index, bounded by the number of configured endpoints, tells them apart.
     _PROVIDER_COOLDOWN_EVENTS = counter(
         "http_rpc_provider_cooldown_events",
         (
             "Endpoint cooldown transitions: entered, probe_failed (still failing when the "
             "cooldown ended) and recovered."
         ),
-        ["provider", "event"],
+        ["provider", "index", "event"],
         namespace=metrics_config.namespace,
     )
 

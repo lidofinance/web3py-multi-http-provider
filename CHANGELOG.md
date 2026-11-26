@@ -10,8 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `MultiProvider` and `AsyncMultiProvider` accept `cooldown_seconds`, like the fallback providers.
 - `cooldown_on`: a predicate that decides which errors start a cooldown. The default is the
   new public `is_endpoint_failure`.
-- Metric `http_rpc_provider_cooldown_events`, labelled by `provider` and `event`
-  (`entered`, `probe_failed`, `recovered`).
+- Metric `http_rpc_provider_cooldown_events`, labelled by `provider`, `index` (the endpoint's
+  position in the configured list) and `event` (`entered`, `probe_failed`, `recovered`).
 
 ### Changed
 - HTTP 400, 413, 414 and 422 no longer start a cooldown, and end one like a success: the
@@ -34,7 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `_selector_class`. Removed: `_on_provider_failure` and `_on_provider_success` (added in
   2.3.0), `MultiProvider._current_provider_index`, `_provider_indexes`,
   `FallbackProvider._cooldown`. `_make_request_with_failover` takes only `method` and `params`.
-  `ProviderCooldown.order` is now `reorder`, and `mark_failed` takes the error.
+  `ProviderCooldown.order` is now `reorder`, and `mark_failed` takes the error. The failover
+  keeps the `_providers` list built in `__init__`: change its items, do not assign a new list.
 
 Releases 2.0.0 to 2.3.0 are described in the GitHub releases, except 2.2.3, which has none.
 

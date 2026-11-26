@@ -474,9 +474,9 @@ class TestCooldownMetrics:
         _request(provider)  # probe answers
 
         assert mock_metrics.provider_cooldown_events.call_args_list == [
-            (("rpc-0.example", "entered"),),
-            (("rpc-0.example", "probe_failed"),),
-            (("rpc-0.example", "recovered"),),
+            (("rpc-0.example", "0", "entered"),),
+            (("rpc-0.example", "0", "probe_failed"),),
+            (("rpc-0.example", "0", "recovered"),),
         ]
         assert mock_metrics.provider_cooldown_events.return_value.inc.call_count == 3
 

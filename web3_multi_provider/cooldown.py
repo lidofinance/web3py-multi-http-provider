@@ -195,7 +195,7 @@ class ProviderCooldown:
         # by init_metrics(); they must be read through the module at call time.
         # pylint: disable=protected-access
         try:
-            metrics._PROVIDER_COOLDOWN_EVENTS.labels(label, event).inc()
+            metrics._PROVIDER_COOLDOWN_EVENTS.labels(label, str(index), event).inc()
         except Exception as error:  # pylint: disable=broad-except
             log = (
                 logger.debug

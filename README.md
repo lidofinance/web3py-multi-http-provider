@@ -160,15 +160,15 @@ w3 = Web3(MultiProvider([
 
 `init_metrics()` registers the following metrics with the default Prometheus registry:
 
-| Metric                              | Type      | Description                                                                       |
-|-------------------------------------|-----------|-----------------------------------------------------------------------------------|
-| `http_rpc_requests`                 | Counter   | Total HTTP requests by network, provider, response code, result                   |
-| `http_rpc_batch_size`               | Histogram | Distribution of batch sizes                                                       |
-| `http_rpc_response_seconds`         | Histogram | RPC response time                                                                 |
-| `http_rpc_request_payload_bytes`    | Histogram | Request payload size                                                              |
-| `http_rpc_response_payload_bytes`   | Histogram | Response payload size                                                             |
-| `rpc_request`                       | Counter   | RPC calls by method and result                                                    |
-| `http_rpc_provider_cooldown_events` | Counter   | Endpoint cooldown transitions by provider: `entered`, `probe_failed`, `recovered` |
+| Metric                              | Type      | Description                                                                                          |
+|-------------------------------------|-----------|------------------------------------------------------------------------------------------------------|
+| `http_rpc_requests`                 | Counter   | Total HTTP requests by network, provider, response code, result                                      |
+| `http_rpc_batch_size`               | Histogram | Distribution of batch sizes                                                                          |
+| `http_rpc_response_seconds`         | Histogram | RPC response time                                                                                    |
+| `http_rpc_request_payload_bytes`    | Histogram | Request payload size                                                                                 |
+| `http_rpc_response_payload_bytes`   | Histogram | Response payload size                                                                                |
+| `rpc_request`                       | Counter   | RPC calls by method and result                                                                       |
+| `http_rpc_provider_cooldown_events` | Counter   | Endpoint cooldown transitions by provider and endpoint index: `entered`, `probe_failed`, `recovered` |
 
 #### Custom configuration
 
