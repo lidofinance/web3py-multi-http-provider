@@ -96,6 +96,21 @@ w3 = Web3(FallbackProvider(endpoints, cooldown_seconds=60, cooldown_on=lambda er
 A JSON-RPC error in an HTTP 200 response (for example, a rate limit reported as error `-32005`) is a
 valid answer, so it never reaches `cooldown_on` and does not start a cooldown.
 
+### Retries
+
+Each endpoint is a web3 `HTTPProvider`, which by default makes up to 5 attempts at a failed read
+request with exponential backoff, about 2 seconds in total, before failover moves on. With several endpoints,
+failover already is the retry, so these retries mostly delay it. Consider turning them off:
+
+```py
+w3 = Web3(FallbackProvider(endpoints, exception_retry_configuration=None, cooldown_seconds=60))
+```
+
+To keep some retries instead, pass an `ExceptionRetryConfiguration` from
+`web3.providers.rpc.utils`. Its `retries` counts attempts, so `retries=2` means one retry, and its
+`errors` is required. The trade-off: when every endpoint has a short glitch
+at once, fewer attempts are made before `NoActiveProviderError` is raised.
+
 ### `AsyncMultiProvider` and `AsyncFallbackProvider`
 
 These providers are async versions of `MultiProvider` and `FallbackProvider` respectively. They may
