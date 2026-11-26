@@ -1,4 +1,3 @@
-import json
 import logging
 import math
 import threading
@@ -12,40 +11,23 @@ from web3_multi_provider import metrics
 
 logger = logging.getLogger(__name__)
 
-_TRANSPORT_ERRORS = (
-    ConnectionError,
-    TimeoutError,
-    requests.ConnectionError,
-    requests.Timeout,
-    aiohttp.ClientConnectionError,
-)
-_INVALID_JSON_ERRORS = (json.JSONDecodeError, requests.JSONDecodeError)
 # Statuses that blame the request, not the endpoint: another endpoint would reject it too.
 _REQUEST_ERROR_STATUSES = frozenset({400, 413, 414, 422})
-# Raised before anything is sent, for example params that cannot be encoded as JSON.
-_REQUEST_ERRORS = (TypeError, ValueError)
 
 
 def is_endpoint_failure(error: Exception) -> bool:
     """Whether `error` may mean the endpoint is unhealthy, rather than that the request was bad.
 
-    False only for errors that blame the request: HTTP 400, 413, 414 and 422, and `TypeError`
-    or `ValueError` raised while the request is built. Everything else counts, including
-    errors this function does not know. A wrong guess here is cheap in one direction and
-    expensive in the other: a needless cooldown moves a healthy endpoint back for one
-    window, while a missed one makes every request pay web3's retries on a broken endpoint,
-    for example one that answers 401 because its API key expired.
+    False only for HTTP 400, 413, 414 and 422: the endpoint answered and rejected the request,
+    and another endpoint would reject it too. Everything else counts, including errors this
+    function does not know. A wrong guess is cheap in one direction and expensive in the
+    other: a needless cooldown moves a healthy endpoint back for one window, while a missed
+    one makes every request pay web3's retries on a broken endpoint, for example one that
+    answers 401 because its API key expired. Errors cannot be classified by Python type:
+    web3 raises the same `TypeError` and `ValueError` for bad params and for broken responses.
     """
-    if isinstance(error, _TRANSPORT_ERRORS):
-        return True
     status = _http_status(error)
-    if status is not None:
-        return status not in _REQUEST_ERROR_STATUSES
-    # A node answers JSON, so anything else comes from a broken node or a proxy in front
-    # of it. Checked before `_REQUEST_ERRORS`: JSONDecodeError is a ValueError.
-    if isinstance(error, _INVALID_JSON_ERRORS):
-        return True
-    return not isinstance(error, _REQUEST_ERRORS)
+    return status is None or status not in _REQUEST_ERROR_STATUSES
 
 
 def _http_status(error: Exception) -> int | None:
@@ -138,8 +120,16 @@ class ProviderCooldown:
         self._probing.add(index)
 
     def mark_failed(self, index: int, error: Exception) -> None:
-        """Start or extend the cooldown of the endpoint at `index` if `error` counts."""
-        if not self.enabled or not self._is_failure(error):
+        """Start or extend the cooldown of the endpoint at `index` if `error` counts.
+
+        An error that does not count, such as HTTP 400, means the endpoint answered: it ends
+        the cooldown like a success, so a probe that gets one does not keep the endpoint
+        cooling for another window.
+        """
+        if not self.enabled:
+            return
+        if not self._is_failure(error):
+            self.mark_succeeded(index)
             return
         with self._lock:
             if index in self._probing:

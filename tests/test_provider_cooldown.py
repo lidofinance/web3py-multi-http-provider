@@ -284,6 +284,9 @@ class TestErrorClassification:
             requests.HTTPError("no response attached"),
             KeyError("result"),
             RuntimeError("unknown"),
+            TypeError("int() can't convert non-string"),  # `"result": null` from eth_chainId
+            UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"),  # binary body
+            aiohttp.InvalidUrlClientError("not a url"),
         ],
         ids=repr,
     )
@@ -299,8 +302,6 @@ class TestErrorClassification:
             _http_error(422),
             _client_response_error(400),
             _client_response_error(413),
-            TypeError("Could not encode to JSON"),
-            ValueError("bad hex"),
         ],
         ids=repr,
     )
@@ -330,6 +331,18 @@ class TestErrorClassification:
             _request(provider)
 
         assert _calls(provider) == [1, 3]
+
+    def test_probe_rejected_as_a_bad_request_ends_the_cooldown(self):
+        clock = FakeClock()
+        provider = _fallback(DOWN, OK, clock=clock)
+        _request(provider)  # endpoint 0 fails and goes on cooldown
+        _answer(provider._providers[0], _http_error(400))
+        clock.now += COOLDOWN + 1
+
+        _request(provider)  # the probe reaches endpoint 0, which answers 400
+        _request(provider)
+
+        assert _calls(provider)[0] == 2  # tried first again: it is up
 
     def test_custom_predicate_decides_what_starts_a_cooldown(self):
         provider = _fallback(_http_error(413), OK, cooldown_on=lambda error: True)
