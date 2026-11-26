@@ -90,6 +90,8 @@ _RPC_SERVICE_RESPONSE_SECONDS: Any = _DummyMetric()
 _RPC_SERVICE_REQUEST_PAYLOAD_BYTES: Any = _DummyMetric()
 _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES: Any = _DummyMetric()
 
+_PROVIDER_COOLDOWN_EVENTS: Any = _DummyMetric()
+
 
 def init_metrics(
     metrics_config: MetricsConfig = MetricsConfig(), registry=None
@@ -106,7 +108,7 @@ def init_metrics(
     global _metrics_initialized, _HTTP_RPC_SERVICE_REQUESTS, _HTTP_RPC_BATCH_SIZE
     global _RPC_REQUEST, _RPC_SERVICE_RESPONSE_SECONDS
     global _RPC_SERVICE_REQUEST_PAYLOAD_BYTES, _RPC_SERVICE_RESPONSE_PAYLOAD_BYTES
-    global _CHAIN_ID_TO_NAME
+    global _CHAIN_ID_TO_NAME, _PROVIDER_COOLDOWN_EVENTS
     # pylint: enable=global-statement
 
     counter: Any = _prom["Counter"]
@@ -172,6 +174,16 @@ def init_metrics(
         "http_rpc_response_payload_bytes",
         "Distribution of response payload sizes (bytes) RPC calls.",
         ["network", "layer", "chain_id", "provider"],
+        namespace=metrics_config.namespace,
+    )
+
+    _PROVIDER_COOLDOWN_EVENTS = counter(
+        "http_rpc_provider_cooldown_events",
+        (
+            "Endpoint cooldown transitions: entered, probe_failed (still failing when the "
+            "cooldown ended) and recovered."
+        ),
+        ["provider", "index", "event"],
         namespace=metrics_config.namespace,
     )
 

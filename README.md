@@ -55,25 +55,30 @@ last_block = w3.eth.get_block('latest')
 
 ### `MultiProvider`
 
-This provider keeps track of the current endpoint and switches to the next one if an error occurs.
-It fails if no endpoints are available.
+This provider spreads requests across the endpoints (round-robin): each request starts one endpoint
+further than the previous one and fails over to the next endpoints in turn. It fails if no endpoints
+are available.
+
+Use it with a [cooldown](#endpoint-cooldown). Without one, the provider does not know that an
+endpoint is down: every request that starts at it tries it first, and the endpoint after it gets its
+share of the requests too. With a cooldown, requests rotate over the endpoints that are up, so they
+share the load evenly.
 
 ### `FallbackProvider`
 
-This provider sends each request to the endpoints in the given order until a response is received or the
-endpoints list is exhausted.
+This provider sends requests to the endpoints in the configured order until one answers or the list
+is exhausted.
 
-A failing endpoint is slow to fail over from: web3 retries it before the next endpoint is tried. Pass
-`cooldown_seconds` to try an endpoint that failed after the other endpoints until its cooldown ends.
-It is still tried if the other endpoints fail. When the cooldown ends, one request tries the endpoint
-first again; concurrent requests keep it last until that request finishes. If it fails, a new
-cooldown starts. An endpoint that answers, including one tried last, is first again at once. The
-default `0` disables the cooldown.
+### Endpoint cooldown
 
-Any exception from an endpoint starts its cooldown, including errors that the request itself
-causes, such as a timeout or HTTP 413 on a heavy `eth_getLogs`. A JSON-RPC error in an HTTP 200
-response (for example, a rate limit reported as error `-32005`) is a valid answer and does not start
-a cooldown.
+A failing endpoint is slow to fail over from: web3 retries it before the next endpoint is tried. All
+providers accept `cooldown_seconds`: an endpoint that failed is then tried after the other endpoints
+until its cooldown ends. It is still tried if the other endpoints fail. When the cooldown ends, one
+request probes the endpoint; concurrent requests keep it last until that request finishes. With
+`FallbackProvider` the probe keeps the endpoint's place in the configured order, so a backup is not
+probed while the endpoints before it answer. With `MultiProvider` the probe goes first, so a
+recovered endpoint is back in the rotation at once. If the probe fails, a new cooldown starts. An endpoint that answers, including one tried
+last, is back in its usual place at once. The default `0` disables the cooldown.
 
 ```py
 w3 = Web3(FallbackProvider([
@@ -81,6 +86,34 @@ w3 = Web3(FallbackProvider([
     'https://mainnet.infura.io/v3/...',
 ], cooldown_seconds=60))
 ```
+
+Errors that blame the request itself do not start a cooldown, so one bad request does not move a
+healthy endpoint back for everyone. By default (`is_endpoint_failure`) these are HTTP 400, 413, 414
+and 422: the endpoint answered, so they also end a cooldown, like a success. Every other error starts
+a cooldown, including HTTP 401 and 403 from an expired API key and responses that are not JSON.
+Pass `cooldown_on` to decide yourself, for example to start a cooldown on any error:
+
+```py
+w3 = Web3(FallbackProvider(endpoints, cooldown_seconds=60, cooldown_on=lambda error: True))
+```
+
+A JSON-RPC error in an HTTP 200 response (for example, a rate limit reported as error `-32005`) is a
+valid answer, so it never reaches `cooldown_on` and does not start a cooldown.
+
+### Retries
+
+Each endpoint is a web3 `HTTPProvider`, which by default makes up to 5 attempts at a failed read
+request with exponential backoff, about 2 seconds in total, before failover moves on. With several endpoints,
+failover already is the retry, so these retries mostly delay it. Consider turning them off:
+
+```py
+w3 = Web3(FallbackProvider(endpoints, exception_retry_configuration=None, cooldown_seconds=60))
+```
+
+To keep some retries instead, pass an `ExceptionRetryConfiguration` from
+`web3.providers.rpc.utils`. Its `retries` counts attempts, so `retries=2` means one retry, and its
+`errors` is required. The trade-off: when every endpoint has a short glitch
+at once, fewer attempts are made before `NoActiveProviderError` is raised.
 
 ### `AsyncMultiProvider` and `AsyncFallbackProvider`
 
@@ -127,14 +160,15 @@ w3 = Web3(MultiProvider([
 
 `init_metrics()` registers the following metrics with the default Prometheus registry:
 
-| Metric                            | Type      | Description                                                     |
-|-----------------------------------|-----------|-----------------------------------------------------------------|
-| `http_rpc_requests`               | Counter   | Total HTTP requests by network, provider, response code, result |
-| `http_rpc_batch_size`             | Histogram | Distribution of batch sizes                                     |
-| `http_rpc_response_seconds`       | Histogram | RPC response time                                               |
-| `http_rpc_request_payload_bytes`  | Histogram | Request payload size                                            |
-| `http_rpc_response_payload_bytes` | Histogram | Response payload size                                           |
-| `rpc_request`                     | Counter   | RPC calls by method and result                                  |
+| Metric                              | Type      | Description                                                                                          |
+|-------------------------------------|-----------|------------------------------------------------------------------------------------------------------|
+| `http_rpc_requests`                 | Counter   | Total HTTP requests by network, provider, response code, result                                      |
+| `http_rpc_batch_size`               | Histogram | Distribution of batch sizes                                                                          |
+| `http_rpc_response_seconds`         | Histogram | RPC response time                                                                                    |
+| `http_rpc_request_payload_bytes`    | Histogram | Request payload size                                                                                 |
+| `http_rpc_response_payload_bytes`   | Histogram | Response payload size                                                                                |
+| `rpc_request`                       | Counter   | RPC calls by method and result                                                                       |
+| `http_rpc_provider_cooldown_events` | Counter   | Endpoint cooldown transitions by provider and endpoint index: `entered`, `probe_failed`, `recovered` |
 
 #### Custom configuration
 

@@ -8,7 +8,16 @@ from web3.middleware.proof_of_authority import extradata_to_poa_cleanup
 from web3.middleware.validation import _check_extradata_length
 from web3.types import RPCEndpoint, RPCResponse
 
+from web3_multi_provider.exceptions import ProtocolNotSupported
+
 logger = logging.getLogger(__name__)
+
+
+def ensure_http_endpoint(endpoint_uri: URI | str) -> None:
+    """Raise `ProtocolNotSupported` unless `endpoint_uri` is an HTTP(S) URL."""
+    if not endpoint_uri.startswith("http"):
+        protocol = endpoint_uri.split("://")[0]
+        raise ProtocolNotSupported(f'Protocol "{protocol}" is not supported.')
 
 
 def sanitize_poa_response(method: RPCEndpoint, response: RPCResponse) -> None:
