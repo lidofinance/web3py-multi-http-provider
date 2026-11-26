@@ -136,7 +136,7 @@ class ProviderCooldown:
         """
         if not self.enabled:
             return
-        if not self._is_failure(error):
+        if not self._counts_as_failure(error):
             self.mark_succeeded(index)
             return
         with self._lock:
@@ -155,6 +155,20 @@ class ProviderCooldown:
         elif event == "entered":
             self._report(logging.WARNING, "Provider put on cooldown.", index, event)
 
+    def _counts_as_failure(self, error: Exception) -> bool:
+        # The predicate may come from the user. It runs inside the failover loop, so an
+        # exception here would stop failover before the remaining endpoints are tried.
+        try:
+            return self._is_failure(error)
+        except Exception as predicate_error:  # pylint: disable=broad-except
+            logger.warning(
+                {
+                    "msg": "cooldown_on raised; counting the error as a failure.",
+                    "error": repr(predicate_error),
+                }
+            )
+            return True
+
     def mark_succeeded(self, index: int) -> None:
         """End the cooldown of the endpoint at `index`: it answered, so it is preferred again."""
         if not self.enabled:
@@ -168,11 +182,14 @@ class ProviderCooldown:
             )
 
     def _report(self, level: int, msg: str, index: int, event: str) -> None:
-        logger.log(level, {"msg": msg, "index": index, "seconds": self._seconds})
         label = (
             self._provider_labels[index]
             if index < len(self._provider_labels)
             else str(index)
+        )
+        logger.log(
+            level,
+            {"msg": msg, "index": index, "provider": label, "seconds": self._seconds},
         )
         # The metric objects are package-private module globals in `metrics`, replaced
         # by init_metrics(); they must be read through the module at call time.

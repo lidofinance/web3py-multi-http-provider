@@ -156,6 +156,14 @@ class TestProviderCooldown:
 
         assert [msg["index"] for msg in _warnings(caplog, ".cooldown")] == [0, 1]
 
+    def test_cooldown_log_names_the_provider(self, caplog):
+        provider = _fallback(DOWN, OK)
+
+        with caplog.at_level(logging.WARNING, logger="web3_multi_provider.cooldown"):
+            _request(provider)
+
+        assert [(msg["index"], msg["provider"]) for msg in _warnings(caplog, ".cooldown")] == [(0, "rpc-0.example")]
+
     def test_reorder_moves_cooling_endpoints_to_the_end(self):
         cooldown = ProviderCooldown(COOLDOWN, clock=FakeClock())
 
@@ -359,6 +367,19 @@ class TestErrorClassification:
             _request(provider)
 
         assert _calls(provider) == [3, 3]
+
+    def test_failing_predicate_does_not_stop_failover(self, caplog):
+        def broken(error):
+            raise AttributeError("bug in predicate")
+
+        provider = _fallback(DOWN, OK, cooldown_on=broken)
+
+        with caplog.at_level(logging.WARNING, logger="web3_multi_provider.cooldown"):
+            assert _request(provider) == OK
+            assert _request(provider) == OK
+
+        assert _calls(provider) == [1, 2]  # the error counted as a failure
+        assert any(msg["msg"] == "cooldown_on raised; counting the error as a failure." for msg in _warnings(caplog, ".cooldown"))
 
 
 class TestEndpointSelectors:
