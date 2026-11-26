@@ -388,6 +388,31 @@ class TestEndpointSelectors:
         assert _calls(provider)[0] == 1
         assert sum(_calls(provider)[1:]) == 6
 
+    def test_multi_provider_probes_recovered_endpoint_first(self):
+        clock = FakeClock()
+        provider = _provider(MultiProvider, DOWN, OK, OK, clock=clock)
+        _request(provider)  # starts at endpoint 0: it fails, endpoint 1 answers
+        _answer(provider._providers[0], OK)
+        clock.now += COOLDOWN + 1
+
+        _request(provider)  # starts at endpoint 1, but the probe goes first
+
+        assert _calls(provider) == [1, 1, 0]  # endpoint 0 was replaced, so it counts from 0
+        _request(provider)
+        _request(provider)
+        assert _calls(provider) == [2, 1, 1]  # back in the rotation
+
+    def test_fallback_provider_keeps_probe_of_a_backup_in_its_place(self):
+        clock = FakeClock()
+        provider = _fallback(DOWN, DOWN, OK, clock=clock)
+        _request(provider)  # endpoints 0 and 1 fail, endpoint 2 answers
+        _answer(provider._providers[0], OK)
+        clock.now += COOLDOWN + 1
+
+        _request(provider)
+
+        assert _calls(provider) == [1, 1, 1]  # the primary answers; backup 1 is not probed again
+
 
 class TestCooldownMetrics:
     def test_transitions_are_counted(self, mock_metrics):

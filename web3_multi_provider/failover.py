@@ -23,6 +23,10 @@ class EndpointSelector(ABC):
     them.
     """
 
+    #: Whether the order expresses priority. If it does not, an endpoint whose cooldown
+    #: has just ended is probed first, so it gets back in the order at once.
+    prioritized: bool = True
+
     def __init__(self, count: int):
         self._count = count
 
@@ -40,6 +44,8 @@ class InOrderSelector(EndpointSelector):
 
 class RoundRobinSelector(EndpointSelector):
     """Each request starts one endpoint further than the previous one."""
+
+    prioritized = False
 
     def __init__(self, count: int):
         super().__init__(count)
@@ -99,7 +105,9 @@ class Failover(Generic[P]):
         Call it once per request: it advances the round-robin position and may start a
         cooldown probe.
         """
-        order = self.cooldown.reorder(self.selector.order())
+        order = self.cooldown.reorder(
+            self.selector.order(), probes_first=not self.selector.prioritized
+        )
         return [self.providers[index] for index in order]
 
     def attempt(

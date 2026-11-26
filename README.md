@@ -69,8 +69,10 @@ is exhausted.
 A failing endpoint is slow to fail over from: web3 retries it before the next endpoint is tried. All
 providers accept `cooldown_seconds`: an endpoint that failed is then tried after the other endpoints
 until its cooldown ends. It is still tried if the other endpoints fail. When the cooldown ends, one
-request tries the endpoint in its usual place again; concurrent requests keep it last until that
-request finishes. If it fails, a new cooldown starts. An endpoint that answers, including one tried
+request probes the endpoint; concurrent requests keep it last until that request finishes. With
+`FallbackProvider` the probe keeps the endpoint's place in the configured order, so a backup is not
+probed while the endpoints before it answer. With `MultiProvider` the probe goes first, so a
+recovered endpoint is back in the rotation at once. If the probe fails, a new cooldown starts. An endpoint that answers, including one tried
 last, is back in its usual place at once. The default `0` disables the cooldown.
 
 ```py

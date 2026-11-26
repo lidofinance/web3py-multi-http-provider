@@ -95,18 +95,24 @@ class ProviderCooldown:
         """Whether failed endpoints are moved back at all."""
         return self._seconds > 0
 
-    def reorder(self, order: list[int]) -> list[int]:
+    def reorder(self, order: list[int], *, probes_first: bool = False) -> list[int]:
         """`order` with cooling endpoints moved to the end, keeping relative order.
 
         Cooling endpoints are kept, so a request never has fewer endpoints to try than
         without a cooldown. Each index appears exactly once. Cooling endpoints are ordered
         by when their cooldown ends: the endpoint that failed longest ago is the most likely
         to have recovered. Ties keep their relative order.
+
+        An endpoint whose cooldown has just ended is probed by this request. It keeps its
+        place in `order`, unless `probes_first` is set: then it is tried first, so the probe
+        actually reaches it. Set it when `order` does not express priority, as in
+        round-robin, where an endpoint that is not probed is not back in the rotation.
         """
         if not self.enabled:
             return order
         with self._lock:
             now = self._clock()
+            probes: list[int] = []
             healthy: list[int] = []
             cooling: list[tuple[float, int]] = []
             for index in order:
@@ -117,9 +123,9 @@ class ProviderCooldown:
                     cooling.append((until, index))
                 else:
                     self._start_probe(index, now)
-                    healthy.append(index)
+                    (probes if probes_first else healthy).append(index)
             cooling.sort(key=lambda item: item[0])  # stable: ties keep `order`
-            return healthy + [index for _, index in cooling]
+            return probes + healthy + [index for _, index in cooling]
 
     def _start_probe(self, index: int, now: float) -> None:
         # Re-arm the cooldown before the probe runs, so concurrent requests keep the
