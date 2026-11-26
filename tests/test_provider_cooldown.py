@@ -363,18 +363,23 @@ class TestErrorClassification:
 
 class TestEndpointSelectors:
     def test_in_order_always_starts_from_the_first(self):
-        selector = InOrderSelector(3)
+        selector = InOrderSelector()
 
-        assert [selector.order() for _ in range(2)] == [[0, 1, 2], [0, 1, 2]]
+        assert [selector.arrange([0, 1, 2]) for _ in range(2)] == [[0, 1, 2], [0, 1, 2]]
 
     def test_round_robin_starts_each_request_one_further(self):
-        selector = RoundRobinSelector(3)
+        selector = RoundRobinSelector()
 
-        assert [selector.order() for _ in range(4)] == [[0, 1, 2], [1, 2, 0], [2, 0, 1], [0, 1, 2]]
+        assert [selector.arrange([0, 1, 2]) for _ in range(4)] == [[0, 1, 2], [1, 2, 0], [2, 0, 1], [0, 1, 2]]
+
+    def test_round_robin_rotates_over_the_ready_endpoints_only(self):
+        selector = RoundRobinSelector()
+
+        assert [selector.arrange([1, 2])[0] for _ in range(4)] == [1, 2, 1, 2]
 
     @pytest.mark.parametrize("selector_cls", [InOrderSelector, RoundRobinSelector])
     def test_no_endpoints(self, selector_cls):
-        assert selector_cls(0).order() == []
+        assert selector_cls().arrange([]) == []
 
     def test_multi_provider_spreads_requests(self):
         provider = _provider(MultiProvider, OK, OK, OK, cooldown=0)
@@ -398,8 +403,7 @@ class TestEndpointSelectors:
         for _ in range(6):
             assert _request(provider) == OK
 
-        assert _calls(provider)[0] == 1
-        assert sum(_calls(provider)[1:]) == 6
+        assert _calls(provider) == [1, 3, 3]  # the healthy endpoints share the load evenly
 
     def test_multi_provider_probes_recovered_endpoint_first(self):
         clock = FakeClock()
@@ -547,8 +551,7 @@ class TestAsyncProviderCooldown:
         for _ in range(6):
             assert await _async_request(provider) == OK
 
-        assert _calls(provider)[0] == 1
-        assert sum(_calls(provider)[1:]) == 6
+        assert _calls(provider) == [1, 3, 3]  # the healthy endpoints share the load evenly
 
 
 @patch("web3_multi_provider.multi_http_provider.HTTPProviderProxy._fetch_chain_id", return_value=1)

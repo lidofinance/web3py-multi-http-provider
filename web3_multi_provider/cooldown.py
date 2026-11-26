@@ -78,42 +78,50 @@ class ProviderCooldown:
         return self._seconds > 0
 
     def reorder(self, order: list[int], *, probes_first: bool = False) -> list[int]:
-        """`order` with cooling endpoints moved to the end, keeping relative order.
+        """`order` with cooling endpoints moved to the end. See `split`."""
+        probes, ready, cooling = self.split(order, probes_first=probes_first)
+        return probes + ready + cooling
+
+    def split(
+        self, order: list[int], *, probes_first: bool = False
+    ) -> tuple[list[int], list[int], list[int]]:
+        """Split `order` into endpoints to probe first, ready ones and cooling ones.
 
         Cooling endpoints are kept, so a request never has fewer endpoints to try than
-        without a cooldown. Each index appears exactly once. Cooling endpoints are ordered
-        by when their cooldown ends: the endpoint that failed longest ago is the most likely
-        to have recovered. Ties keep their relative order.
+        without a cooldown. Each index appears exactly once. Ready endpoints keep their
+        relative order. Cooling endpoints are ordered by when their cooldown ends: the
+        endpoint that failed longest ago is the most likely to have recovered. Ties keep
+        their relative order.
 
-        An endpoint whose cooldown has just ended is probed by this request. It keeps its
-        place in `order`, unless `probes_first` is set: then it is tried first, so the probe
-        actually reaches it. Set it when `order` does not express priority, as in
+        An endpoint whose cooldown has just ended is probed by this request. It stays among
+        the ready endpoints, unless `probes_first` is set: then it is returned first, so the
+        probe actually reaches it. Set it when `order` does not express priority, as in
         round-robin, where an endpoint that is not probed is not back in the rotation.
         """
         if not self.enabled:
-            return order
+            return [], order, []
         with self._lock:
             now = self._clock()
             probes: list[int] = []
-            healthy: list[int] = []
+            ready: list[int] = []
             cooling: list[tuple[float, int]] = []
             for index in order:
                 until = self._until.get(index)
                 if until is None:
-                    healthy.append(index)
+                    ready.append(index)
                 elif until > now:
                     cooling.append((until, index))
                 else:
                     self._start_probe(index, now)
-                    (probes if probes_first else healthy).append(index)
+                    (probes if probes_first else ready).append(index)
             cooling.sort(key=lambda item: item[0])  # stable: ties keep `order`
-            return probes + healthy + [index for _, index in cooling]
+            return probes, ready, [index for _, index in cooling]
 
     def _start_probe(self, index: int, now: float) -> None:
         # Re-arm the cooldown before the probe runs, so concurrent requests keep the
         # endpoint last. A probe that never reports back (the request was cancelled, or
         # an earlier endpoint answered first) only delays the next probe by one window.
-        # Because `reorder` sorts cooling endpoints by `_until`, such an endpoint still
+        # Because `split` sorts cooling endpoints by `_until`, such an endpoint still
         # comes before endpoints that failed after it, so it is not stuck behind
         # endpoints that are actually down.
         self._until[index] = now + self._seconds

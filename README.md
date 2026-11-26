@@ -59,6 +59,11 @@ This provider spreads requests across the endpoints (round-robin): each request 
 further than the previous one and fails over to the next endpoints in turn. It fails if no endpoints
 are available.
 
+Use it with a [cooldown](#endpoint-cooldown). Without one, the provider does not know that an
+endpoint is down: every request that starts at it tries it first, and the endpoint after it gets its
+share of the requests too. With a cooldown, requests rotate over the endpoints that are up, so they
+share the load evenly.
+
 ### `FallbackProvider`
 
 This provider sends requests to the endpoints in the configured order until one answers or the list
@@ -86,8 +91,7 @@ Errors that blame the request itself do not start a cooldown, so one bad request
 healthy endpoint back for everyone. By default (`is_endpoint_failure`) these are HTTP 400, 413, 414
 and 422: the endpoint answered, so they also end a cooldown, like a success. Every other error starts
 a cooldown, including HTTP 401 and 403 from an expired API key and responses that are not JSON.
-Pass `cooldown_on` to decide yourself, for example
-to start a cooldown on any error:
+Pass `cooldown_on` to decide yourself, for example to start a cooldown on any error:
 
 ```py
 w3 = Web3(FallbackProvider(endpoints, cooldown_seconds=60, cooldown_on=lambda error: True))

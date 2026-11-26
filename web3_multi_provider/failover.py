@@ -17,48 +17,48 @@ from web3_multi_provider.util import sanitize_poa_response
 
 
 class EndpointSelector(ABC):
-    """Order in which a request tries the endpoints.
+    """Order in which a request tries the endpoints that are not on cooldown.
 
     Implementations do no I/O and are thread-safe, so the sync and async providers share
     them.
     """
 
-    #: Whether the order expresses priority. If it does not, an endpoint whose cooldown
-    #: has just ended is probed first, so it gets back in the order at once.
+    #: Whether the configured order expresses priority. If it does not, an endpoint whose
+    #: cooldown has just ended is probed first, so it gets back in the order at once.
     prioritized: bool = True
 
-    def __init__(self, count: int):
-        self._count = count
-
     @abstractmethod
-    def order(self) -> list[int]:
-        """Endpoint indexes for one request. Called once per request."""
+    def arrange(self, ready: list[int]) -> list[int]:
+        """Order `ready`, endpoint indexes in configured order. Called once per request."""
 
 
 class InOrderSelector(EndpointSelector):
     """Every request starts from the first endpoint."""
 
-    def order(self) -> list[int]:
-        return list(range(self._count))
+    def arrange(self, ready: list[int]) -> list[int]:
+        return ready
 
 
 class RoundRobinSelector(EndpointSelector):
-    """Each request starts one endpoint further than the previous one."""
+    """Each request starts one endpoint further than the previous one.
+
+    It rotates over the endpoints that are not on cooldown, so the endpoint after one
+    that is down does not also get that endpoint's share of the requests.
+    """
 
     prioritized = False
 
-    def __init__(self, count: int):
-        super().__init__(count)
+    def __init__(self) -> None:
         self._lock = threading.Lock()
         self._next = 0
 
-    def order(self) -> list[int]:
-        if not self._count:
+    def arrange(self, ready: list[int]) -> list[int]:
+        if not ready:
             return []
         with self._lock:
-            start = self._next
-            self._next = (start + 1) % self._count
-        return [(start + offset) % self._count for offset in range(self._count)]
+            start = self._next % len(ready)
+            self._next = start + 1
+        return ready[start:] + ready[:start]
 
 
 class _Endpoint(Protocol):
@@ -80,7 +80,7 @@ def build_failover(  # pylint: disable=too-many-arguments
     """Failover over `providers`, with endpoint metrics labelled like the HTTP metrics."""
     labels = [getattr(p, "_uri", str(i)) for i, p in enumerate(providers)]
     cooldown = ProviderCooldown(cooldown_seconds, labels, is_failure=cooldown_on)
-    return Failover(providers, selector_class(len(providers)), cooldown, logger)
+    return Failover(providers, selector_class(), cooldown, logger)
 
 
 class Failover(Generic[P]):
@@ -105,9 +105,11 @@ class Failover(Generic[P]):
         Call it once per request: it advances the round-robin position and may start a
         cooldown probe.
         """
-        order = self.cooldown.reorder(
-            self.selector.order(), probes_first=not self.selector.prioritized
+        probes, ready, cooling = self.cooldown.split(
+            list(range(len(self.providers))),
+            probes_first=not self.selector.prioritized,
         )
+        order = probes + self.selector.arrange(ready) + cooling
         return [self.providers[index] for index in order]
 
     def attempt(
