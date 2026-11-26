@@ -80,11 +80,12 @@ w3 = Web3(FallbackProvider([
 ], cooldown_seconds=60))
 ```
 
-Only errors that say the endpoint is unhealthy start a cooldown, so one bad request does not move a
-healthy endpoint back for everyone. By default (`is_endpoint_failure`) these are connection errors,
-timeouts, HTTP 429 and 5xx, and responses that are not JSON (for example an HTML page from a proxy in
-front of the node). Pass `cooldown_on` to decide yourself, for example to start a cooldown on any
-error:
+Errors that blame the request itself do not start a cooldown, so one bad request does not move a
+healthy endpoint back for everyone. By default (`is_endpoint_failure`) these are HTTP 400, 413, 414
+and 422, and `TypeError` or `ValueError` raised while the request is built (for example params that
+cannot be encoded as JSON). Every other error starts a cooldown, including HTTP 401 and 403 from an
+expired API key and responses that are not JSON. Pass `cooldown_on` to decide yourself, for example
+to start a cooldown on any error:
 
 ```py
 w3 = Web3(FallbackProvider(endpoints, cooldown_seconds=60, cooldown_on=lambda error: True))

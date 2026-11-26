@@ -20,20 +20,32 @@ _TRANSPORT_ERRORS = (
     aiohttp.ClientConnectionError,
 )
 _INVALID_JSON_ERRORS = (json.JSONDecodeError, requests.JSONDecodeError)
+# Statuses that blame the request, not the endpoint: another endpoint would reject it too.
+_REQUEST_ERROR_STATUSES = frozenset({400, 413, 414, 422})
+# Raised before anything is sent, for example params that cannot be encoded as JSON.
+_REQUEST_ERRORS = (TypeError, ValueError)
 
 
 def is_endpoint_failure(error: Exception) -> bool:
-    """Whether `error` says the endpoint is unhealthy, rather than that the request was bad.
+    """Whether `error` may mean the endpoint is unhealthy, rather than that the request was bad.
 
-    True for connection errors, timeouts, HTTP 429 and 5xx, and bodies that are not JSON:
-    a node answers JSON, so anything else comes from a broken node or a proxy in front of it.
+    False only for errors that blame the request: HTTP 400, 413, 414 and 422, and `TypeError`
+    or `ValueError` raised while the request is built. Everything else counts, including
+    errors this function does not know. A wrong guess here is cheap in one direction and
+    expensive in the other: a needless cooldown moves a healthy endpoint back for one
+    window, while a missed one makes every request pay web3's retries on a broken endpoint,
+    for example one that answers 401 because its API key expired.
     """
     if isinstance(error, _TRANSPORT_ERRORS):
         return True
     status = _http_status(error)
     if status is not None:
-        return status == 429 or status >= 500
-    return isinstance(error, _INVALID_JSON_ERRORS)
+        return status not in _REQUEST_ERROR_STATUSES
+    # A node answers JSON, so anything else comes from a broken node or a proxy in front
+    # of it. Checked before `_REQUEST_ERRORS`: JSONDecodeError is a ValueError.
+    if isinstance(error, _INVALID_JSON_ERRORS):
+        return True
+    return not isinstance(error, _REQUEST_ERRORS)
 
 
 def _http_status(error: Exception) -> int | None:

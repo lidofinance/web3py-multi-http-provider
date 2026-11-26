@@ -268,15 +268,22 @@ class TestErrorClassification:
             requests.ConnectionError("refused"),
             requests.ReadTimeout("slow"),
             requests.ConnectTimeout("slow"),
+            _http_error(401),
+            _http_error(403),
+            _http_error(404),
             _http_error(429),
             _http_error(500),
             _http_error(503),
+            _client_response_error(401),
             aiohttp.ServerDisconnectedError(),
             aiohttp.ServerTimeoutError(),
             _client_response_error(429),
             _client_response_error(502),
             json.JSONDecodeError("Expecting value", "<html>", 0),
             requests.JSONDecodeError("Expecting value", "<html>", 0),
+            requests.HTTPError("no response attached"),
+            KeyError("result"),
+            RuntimeError("unknown"),
         ],
         ids=repr,
     )
@@ -287,14 +294,13 @@ class TestErrorClassification:
         "error",
         [
             _http_error(400),
-            _http_error(404),
             _http_error(413),
+            _http_error(414),
+            _http_error(422),
             _client_response_error(400),
             _client_response_error(413),
-            requests.HTTPError("no response attached"),
-            KeyError("result"),
+            TypeError("Could not encode to JSON"),
             ValueError("bad hex"),
-            RuntimeError("bug"),
         ],
         ids=repr,
     )
@@ -316,6 +322,14 @@ class TestErrorClassification:
             _request(provider)
 
         assert _calls(provider) == [4, 1]
+
+    def test_endpoint_with_rejected_credentials_is_put_on_cooldown(self):
+        provider = _fallback(_http_error(401), OK)
+
+        for _ in range(3):
+            _request(provider)
+
+        assert _calls(provider) == [1, 3]
 
     def test_custom_predicate_decides_what_starts_a_cooldown(self):
         provider = _fallback(_http_error(413), OK, cooldown_on=lambda error: True)
@@ -526,6 +540,8 @@ _FAILING_ADDRESS = "http://rpc-failing.example"
     [
         (503, "text/plain", "Service Unavailable", 1),
         (429, "application/json", '{"error": {"code": 429, "message": "rate limited"}}', 1),
+        (401, "text/plain", "Unauthorized", 1),
+        (403, "application/json", '{"error": {"code": 403, "message": "invalid API key"}}', 1),
         (413, "application/json", '{"error": {"code": -32600, "message": "too large"}}', 2),
     ],
 )
