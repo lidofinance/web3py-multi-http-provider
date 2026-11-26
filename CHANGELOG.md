@@ -19,7 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `cooldown_on=lambda error: True` to keep that.
 - `MultiProvider` rotates over the endpoints that are not on cooldown, and each request starts
   one endpoint further than the previous one. Before, the position moved once per endpoint
-  tried, so with `[dead, ok]` every request tried the dead endpoint first.
+  tried, so with `[dead, ok]` every request tried the dead endpoint first. Without a cooldown,
+  the endpoint after a dead one now also gets the dead one's share: with `[dead, b, c]`, `b`
+  serves twice as many requests as `c`. Set `cooldown_seconds` to spread the load evenly.
+- `get_providers()` advances the round-robin position and may start a cooldown probe when it is
+  called. Calling it only to inspect the endpoints delays an endpoint's recovery by one window.
 - With `MultiProvider`, an endpoint whose cooldown has ended is probed first, so a recovered
   endpoint is back in the rotation at once. `FallbackProvider` keeps the probe in its place.
 - Endpoint URLs are no longer masked in the "Provider not responding." warning. URLs that

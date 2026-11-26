@@ -418,6 +418,16 @@ class TestEndpointSelectors:
 
         assert _calls(provider) == [2, 4]
 
+    def test_multi_provider_without_cooldown_gives_the_next_endpoint_double_load(self):
+        # Documented trade-off: without a cooldown the provider cannot know an endpoint is
+        # down, so requests that start at it end up at the next endpoint.
+        provider = _provider(MultiProvider, DOWN, OK, OK, cooldown=0)
+
+        for _ in range(6):
+            assert _request(provider) == OK
+
+        assert _calls(provider) == [2, 4, 2]
+
     def test_multi_provider_skips_cooling_endpoint(self):
         provider = _provider(MultiProvider, DOWN, OK, OK)
 
@@ -564,6 +574,18 @@ class TestAsyncProviderCooldown:
             await _async_request(provider)
 
         assert _calls(provider) == [3, 3]
+
+    @pytest.mark.asyncio
+    async def test_multi_provider_probes_recovered_endpoint_first(self):
+        clock = FakeClock()
+        provider = _provider(AsyncMultiProvider, DOWN, OK, OK, clock=clock)
+        await _async_request(provider)  # starts at endpoint 0: it fails, endpoint 1 answers
+        _answer(provider._providers[0], OK, AsyncMock)
+        clock.now += COOLDOWN + 1
+
+        await _async_request(provider)  # the probe goes first
+
+        assert _calls(provider) == [1, 1, 0]
 
     @pytest.mark.asyncio
     async def test_multi_provider_skips_cooling_endpoint(self):
